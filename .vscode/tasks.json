@@ -1,0 +1,51 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "CMake: Configure (tests enabled)",
+            "type": "process",
+            "command": "/opt/homebrew/bin/cmake",
+            "args": [
+                "-S",
+                "${workspaceFolder}",
+                "-B",
+                "${workspaceFolder}/build",
+                "-DBUILD_TESTING=ON"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "CMake: Build (including tests)",
+            "type": "process",
+            "command": "/opt/homebrew/bin/cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/build"
+            ],
+            "dependsOn": "CMake: Configure (tests enabled)",
+            "dependsOrder": "sequence",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "CTest: Run tests",
+            "type": "process",
+            "command": "/opt/homebrew/bin/ctest",
+            "args": [
+                "--test-dir",
+                "${workspaceFolder}/build",
+                "--output-on-failure"
+            ],
+            "dependsOn": "CMake: Build (including tests)",
+            "dependsOrder": "sequence",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        }
+    ]
+}

@@ -1,0 +1,14 @@
+{
+  "configurations": [
+    {
+      "name": "macOS",
+      "compilerPath": "/usr/bin/clang++",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "/opt/homebrew/opt/googletest/include"
+      ],
+      "cppStandard": "c++20"
+    }
+  ],
+  "version": 4
+}
