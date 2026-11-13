@@ -1,6 +1,7 @@
 find_package(GTest CONFIG REQUIRED)
 
 add_executable(system_core_tests
+    containers/thread_safe_queue_test.cpp
     logging/console_logger_test.cpp
     logging/file_logger_test.cpp
 )
