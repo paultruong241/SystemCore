@@ -50,7 +50,7 @@ public:
      *        available.
      * @return The value moved from the front of the queue.
      */
-    T pop()
+    T wait_pop()
     {
         std::unique_lock<std::mutex> queue_lock(mutex_);
         not_empty_cv_.wait(queue_lock, [this] { return !queue_.empty(); });
