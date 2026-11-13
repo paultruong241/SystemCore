@@ -27,6 +27,7 @@ target_include_directories(system_core
         ${PROJECT_SOURCE_DIR}/include
     PRIVATE
         ${PROJECT_SOURCE_DIR}/include/logging
+        ${PROJECT_SOURCE_DIR}/include/containers
 )
 
 # Enable unit testing
