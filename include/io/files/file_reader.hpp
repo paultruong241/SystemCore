@@ -4,8 +4,10 @@
  *****************************************************************************/
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <ios>
 #include <limits>
 #include <string>
 
@@ -46,4 +48,11 @@ protected:
 
     /// Input stream for the file.
     std::ifstream file_stream_;
+
+    /**
+     * @brief Checks whether the input stream is open and has no @c badbit set.
+     * @return @c true if the stream is open and @c badbit is not set;
+     *         otherwise, @c false.
+     */
+    bool isStreamUsable() const;
 };

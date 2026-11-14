@@ -12,3 +12,8 @@ FileReader::FileReader(const std::string &file_path,
     file_stream_(file_path, open_mode)
 {
 }
+
+bool FileReader::isStreamUsable() const
+{
+    return file_stream_.is_open() && !file_stream_.bad();
+}

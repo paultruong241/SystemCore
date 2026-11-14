@@ -8,24 +8,20 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
-#include <limits>
 
-BinaryFileReader::BinaryFileReader(const std::string &file_path) : FileReader(file_path, std::ios::in | std::ios::binary)
+BinaryFileReader::BinaryFileReader(const std::string &file_path) :
+    FileReader(file_path, std::ios::in | std::ios::binary)
 {
 }
 
 bool BinaryFileReader::readAll(std::vector<std::byte> &buffer)
 {
     buffer.clear();
-    if (!file_stream_.is_open())
+    if (!isStreamUsable())
     {
-        std::cerr << "BinaryFileReader::readAll(): File is not open." << std::endl;
-        return false;
-    }
-
-    if (file_stream_.bad())
-    {
-        std::cerr << "BinaryFileReader::readAll(): Stream is in a bad state." << std::endl;
+        std::cerr << "BinaryFileReader::readAll(): File stream is not open or "
+                     "is in a bad state."
+                  << std::endl;
         return false;
     }
 
@@ -46,15 +42,10 @@ bool BinaryFileReader::readChunk(std::vector<std::byte> &buffer,
                                  const std::uintmax_t max_bytes)
 {
     buffer.clear();
-    if (!file_stream_.is_open())
+    if (!isStreamUsable())
     {
-        std::cerr << "BinaryFileReader::readChunk(): File is not open." << std::endl;
-        return false;
-    }
-
-    if (file_stream_.bad())
-    {
-        std::cerr << "BinaryFileReader::readChunk(): Stream is in a bad state."
+        std::cerr << "BinaryFileReader::readChunk(): File stream is not open or "
+                     "is in a bad state."
                   << std::endl;
         return false;
     }
