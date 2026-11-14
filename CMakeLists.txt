@@ -17,6 +17,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Build the production library
 add_library(system_core
+    src/io/files/binary_file_reader.cpp
+    src/io/files/file_reader.cpp
     src/logging/console_logger.cpp
     src/logging/file_logger.cpp
     src/logging/logger.cpp
