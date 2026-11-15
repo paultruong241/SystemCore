@@ -13,6 +13,15 @@ The logging API is declared in [`include/logging/`](./include/logging/):
 
 Both concrete loggers default to the `kInfo` threshold and omit messages below their configured threshold.
 
+## File readers
+
+The file reader API is declared in [`include/io/files/`](./include/io/files/):
+
+- **`FileReader`** opens an input file and records its path and size when constructed. The recorded size is a snapshot; it is not updated if the file changes.
+- **`BinaryFileReader`** reads binary data into a `std::vector<std::byte>`. `readAll()` reads from the beginning, while `readChunk(max_bytes)` reads up to the requested count from the current position. Both methods return `false` on failure and leave the output buffer empty.
+
+Reads use the size captured at construction. Appended data is ignored, and truncating the file may cause a read to fail. `readChunk()` returns successfully with an empty buffer when no bytes remain.
+
 ## Thread-safe queue
 
 [`include/containers/thread_safe_queue.hpp`](./include/containers/thread_safe_queue.hpp) provides the header-only `ThreadSafeQueue<T>`, a mutex-protected FIFO queue with copy and move `push` overloads. Its retrieval methods move values out of the queue:
@@ -49,9 +58,10 @@ From the repository root, the following commands configure, build, and run all t
 /opt/homebrew/bin/ctest --test-dir build --output-on-failure
 ```
 
-The tests are in [`tests/logging/`](./tests/logging/). To run only one logger's tests, filter by suite name:
+The tests are in [`tests/logging/`](./tests/logging/), [`tests/containers/`](./tests/containers/), and [`tests/io/files/`](./tests/io/files/). To run only one suite, filter by suite name:
 
 ```sh
 /opt/homebrew/bin/ctest --test-dir build -R 'ConsoleLoggerTest' --output-on-failure
 /opt/homebrew/bin/ctest --test-dir build -R 'FileLoggerTest' --output-on-failure
+/opt/homebrew/bin/ctest --test-dir build -R 'BinaryFileReaderTest' --output-on-failure
 ```
