@@ -6,6 +6,7 @@
 #include "console_logger.hpp"
 
 #include <iostream>
+#include <mutex>
 
 ConsoleLogger::ConsoleLogger(const LogLevel level) : Logger(level)
 {
