@@ -17,11 +17,13 @@ Both concrete loggers default to the `kInfo` threshold and omit messages below t
 
 [`include/containers/thread_safe_queue.hpp`](./include/containers/thread_safe_queue.hpp) provides the header-only `ThreadSafeQueue<T>`, a mutex-protected FIFO queue with copy and move `push` overloads. Its retrieval methods move values out of the queue:
 
-- `wait_pop()` blocks until a value is available.
+- `wait_pop(std::stop_token)` blocks until a value is available or stop is
+  requested. It returns an empty optional if stopped first.
 - `try_pop()` returns immediately with an `std::optional<T>`, which is empty if the queue has no value.
 - `wait_pop_for(timeout)` waits for the specified `std::chrono::milliseconds` duration and returns an empty optional if it times out.
 
-The queue has no close or shutdown operation, so a call to `wait_pop()` can block indefinitely if no value is pushed.
+Use the stop-aware overload to cancel a waiting consumer. The queue has no
+close or shutdown operation.
 
 ## Build and test prerequisites
 

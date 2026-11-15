@@ -12,6 +12,7 @@
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <thread>
 #include <utility>
@@ -24,16 +25,22 @@ TEST(ThreadSafeQueueTest, SupportsDifferentValueTypes)
 {
     ThreadSafeQueue<int> integer_queue;
     integer_queue.push(42);
-    EXPECT_EQ(integer_queue.wait_pop(), 42);
+    auto integer_value = integer_queue.wait_pop(std::stop_token{});
+    ASSERT_TRUE(integer_value.has_value());
+    EXPECT_EQ(*integer_value, 42);
 
     ThreadSafeQueue<std::string> string_queue;
     const std::string copied_value = "copied value";
     string_queue.push(copied_value);
-    EXPECT_EQ(string_queue.wait_pop(), copied_value);
+    auto copied_result = string_queue.wait_pop(std::stop_token{});
+    ASSERT_TRUE(copied_result.has_value());
+    EXPECT_EQ(*copied_result, copied_value);
 
     std::string moved_value = "moved value";
     string_queue.push(std::move(moved_value));
-    EXPECT_EQ(string_queue.wait_pop(), "moved value");
+    auto moved_result = string_queue.wait_pop(std::stop_token{});
+    ASSERT_TRUE(moved_result.has_value());
+    EXPECT_EQ(*moved_result, "moved value");
 
     ThreadSafeQueue<std::unique_ptr<int>> pointer_queue;
     auto input = std::make_unique<int>(7);
@@ -44,6 +51,23 @@ TEST(ThreadSafeQueueTest, SupportsDifferentValueTypes)
     ASSERT_TRUE(output.has_value());
     ASSERT_NE(*output, nullptr);
     EXPECT_EQ(**output, 7);
+}
+
+/**
+ * @brief Verifies that a stop request cancels a blocked queue retrieval.
+ */
+TEST(ThreadSafeQueueTest, CancelsWaitWhenStopIsRequested)
+{
+    ThreadSafeQueue<int> queue;
+    std::optional<int> result;
+    std::jthread consumer([&](const std::stop_token stop) {
+        result = queue.wait_pop(stop);
+    });
+
+    consumer.request_stop();
+    consumer.join();
+
+    EXPECT_FALSE(result.has_value());
 }
 
 /**
@@ -70,7 +94,11 @@ TEST(ThreadSafeQueueTest, HandlesMultipleProducersAndConsumers)
             values.reserve(items_per_consumer);
             for (std::size_t i = 0; i < items_per_consumer; ++i)
             {
-                values.push_back(queue.wait_pop());
+                const auto value = queue.wait_pop(std::stop_token{});
+                if (value.has_value())
+                {
+                    values.push_back(*value);
+                }
             }
         });
     }

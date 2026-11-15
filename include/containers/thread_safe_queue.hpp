@@ -9,11 +9,12 @@
 #include <mutex>
 #include <optional>
 #include <queue>
+#include <stop_token>
 #include <utility>
 
 /**
- * @brief A thread-safe FIFO queue with blocking and non-blocking retrieval.
- * @tparam T Stored value type; retrieval requires construction from an rvalue.
+ * @brief A thread-safe FIFO queue with stop-aware, timed, and non-blocking retrieval.
+ * @tparam T Type of value stored in the queue; values are retrieved by move.
  */
 template <typename T>
 class ThreadSafeQueue
@@ -29,7 +30,7 @@ public:
             std::lock_guard<std::mutex> queue_lock(mutex_);
             queue_.push(value);
         }
-        not_empty_cv_.notify_one();
+        cv_.notify_one();
     }
 
     /**
@@ -42,18 +43,24 @@ public:
             std::lock_guard<std::mutex> queue_lock(mutex_);
             queue_.push(std::move(value));
         }
-        not_empty_cv_.notify_one();
+        cv_.notify_one();
     }
 
     /**
-     * @brief Removes and returns the next value, blocking until one is
-     *        available.
-     * @return The value moved from the front of the queue.
+     * @brief Waits for a value and removes it, or returns when stopped.
+     * @param stop Token that can cancel the wait.
+     * @return The value moved from the front, or @c std::nullopt if stopped
+     *         before a value is available.
      */
-    T wait_pop()
+    std::optional<T> wait_pop(std::stop_token stop)
     {
         std::unique_lock<std::mutex> queue_lock(mutex_);
-        not_empty_cv_.wait(queue_lock, [this] { return !queue_.empty(); });
+        if (!cv_.wait(
+                queue_lock, stop, [this] { return !queue_.empty(); }))
+        {
+            return std::nullopt;
+        }
+
         T value = std::move(queue_.front());
         queue_.pop();
         return value;
@@ -86,7 +93,8 @@ public:
     std::optional<T> wait_pop_for(const std::chrono::milliseconds timeout)
     {
         std::unique_lock<std::mutex> queue_lock(mutex_);
-        if (!not_empty_cv_.wait_for(queue_lock, timeout, [this] { return !queue_.empty(); }))
+        if (!cv_.wait_for(
+                queue_lock, timeout, [this] { return !queue_.empty(); }))
         {
             return std::nullopt;
         }
@@ -103,5 +111,5 @@ private:
     std::mutex mutex_;
 
     /// Wakes a waiting consumer when a value is added.
-    std::condition_variable not_empty_cv_;
+    std::condition_variable_any cv_;
 };
