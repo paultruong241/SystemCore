@@ -10,8 +10,8 @@
 #include <iostream>
 #include <mutex>
 
-FileLogger::FileLogger(const LogLevel level) :
-    Logger(level), filename_(makeDefaultFilename())
+FileLogger::FileLogger(const LogLevel level, std::string_view file_name) :
+    Logger(level), filename_(file_name)
 {
     if (!openLogFile())
     {

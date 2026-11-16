@@ -49,7 +49,7 @@ private:
  */
 TEST(ConsoleLoggerTest, FiltersMessagesBelowThreshold)
 {
-    ConsoleLogger logger(LogLevel::kWarning);
+    ConsoleLogger &logger = ConsoleLogger::instance(LogLevel::kWarning);
     CoutCapture output;
 
     logger.log(LogLevel::kInfo, "filtered message");
@@ -62,8 +62,12 @@ TEST(ConsoleLoggerTest, FiltersMessagesBelowThreshold)
  */
 TEST(ConsoleLoggerTest, WritesAcceptedMessagesWithLevelAndNewline)
 {
-    ConsoleLogger logger(LogLevel::kWarning);
+    ConsoleLogger &logger = ConsoleLogger::instance(LogLevel::kWarning);
+    ConsoleLogger &same_logger = ConsoleLogger::instance(LogLevel::kError);
     CoutCapture output;
+
+    EXPECT_EQ(&same_logger, &logger);
+    EXPECT_EQ(same_logger.getLogLevel(), LogLevel::kWarning);
 
     logger.log(LogLevel::kWarning, "warning message");
     logger.log(LogLevel::kError, "error message");

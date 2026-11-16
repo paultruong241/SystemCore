@@ -38,6 +38,8 @@ public:
 
     /**
      * @brief Returns the logger's severity threshold.
+     *
+     * The threshold is fixed when the logger is constructed.
      * @return The configured severity level.
      */
     LogLevel getLogLevel() const;

@@ -125,3 +125,25 @@ TEST_F(FileLoggerTest, WritesAcceptedWarningMessages)
     EXPECT_NE(contents.find("[WARN]"), std::string::npos);
     EXPECT_NE(contents.find("accepted warning message"), std::string::npos);
 }
+
+/**
+ * @brief Verifies that FileLogger writes to a caller-supplied filename.
+ */
+TEST_F(FileLoggerTest, UsesCallerSuppliedFilename)
+{
+    const std::string file_name = "custom_file_logger.log";
+    {
+        FileLogger logger(LogLevel::kInfo, file_name);
+        logger.log(LogLevel::kInfo, "custom filename message");
+    }
+
+    const auto log_path = std::filesystem::current_path() / file_name;
+    ASSERT_TRUE(std::filesystem::exists(log_path));
+
+    std::ifstream log_file(log_path);
+    ASSERT_TRUE(log_file.is_open());
+
+    const std::string contents((std::istreambuf_iterator<char>(log_file)),
+                               std::istreambuf_iterator<char>());
+    EXPECT_NE(contents.find("custom filename message"), std::string::npos);
+}

@@ -8,10 +8,10 @@ The logging API is declared in [`include/logging/`](./include/logging/):
 
 - **`LogLevel`** defines the ordered severity levels `kTrace`, `kDebug`, `kInfo`, `kWarning`, `kError`, and `kFatal`. `logLevelToString` converts a level to its label.
 - **`Logger`** is the abstract base class. It stores a minimum severity threshold, synchronizes output, and formats log entries with a timestamp, severity, and thread ID.
-- **`ConsoleLogger`** writes accepted messages to standard output. Warning and more severe messages are flushed immediately.
-- **`FileLogger`** writes accepted messages to a timestamp-named file in the current working directory. Warning and more severe messages are flushed immediately; open and write failures are reported to standard error.
+- **`ConsoleLogger`** is a process-wide singleton that writes accepted messages to standard output. `ConsoleLogger::instance(level)` uses `level` only on its first call; later calls return the same logger and ignore the argument. The default threshold is `kInfo`.
+- **`FileLogger`** writes accepted messages to a caller-supplied file or, by default, a timestamp-named file in the current working directory. Warning and more severe messages are flushed immediately; open and write failures are reported to standard error. Each instance has its own file and threshold.
 
-Both concrete loggers default to the `kInfo` threshold and omit messages below their configured threshold.
+Both concrete loggers omit messages below their threshold, which is fixed when each logger is constructed.
 
 ## File readers
 

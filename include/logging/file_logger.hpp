@@ -11,22 +11,25 @@
 #include <string_view>
 
 /**
- * @brief Writes formatted log messages to a timestamp-named file.
+ * @brief Writes formatted log messages to a file.
  *
- * The logger creates its file in append mode and writes messages whose
- * severity meets or exceeds the configured threshold. Warning and more severe
- * messages are flushed immediately.
+ * The logger uses a timestamp-named file by default or a caller-supplied
+ * filename. It writes accepted messages in append mode and flushes warnings
+ * and more severe messages immediately.
  */
 class FileLogger : public Logger
 {
 public:
     /**
-     * @brief Constructs a logger and attempts to open its timestamp-named file.
+     * @brief Constructs a logger and opens its log file.
      * @param level Minimum severity of messages to write.
+     * @param file_name Log filename; defaults to a timestamp-based name.
      *
      * If the file cannot be opened, the failure is reported to standard error.
      */
-    explicit FileLogger(const LogLevel level = LogLevel::kInfo);
+    explicit FileLogger(
+        const LogLevel level = LogLevel::kInfo,
+        std::string_view file_name = makeDefaultFilename());
 
     /**
      * @brief Writes a message if its severity meets the configured threshold.
@@ -40,20 +43,20 @@ public:
     void log(const LogLevel level, const std::string_view msg) override;
 
 private:
-    /// The name of the log file, generated at construction.
+    /// Name of the log file used by this logger.
     const std::string filename_;
 
     /// Output stream for the generated log file.
     std::ofstream log_file_;
 
     /**
-     * @brief Creates a log filename using the current date and time.
+     * @brief Generates a log filename using the current date and time.
      * @return The generated filename.
      */
     static std::string makeDefaultFilename();
 
     /**
-     * @brief Opens the generated log file in append mode.
+     * @brief Opens the configured log file in append mode.
      * @return True if the file is open; otherwise, false.
      */
     bool openLogFile();
