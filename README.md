@@ -13,6 +13,10 @@ The logging API is declared in [`include/logging/`](./include/logging/):
 
 Both concrete loggers omit messages below their threshold, which is fixed when each logger is constructed.
 
+## Scope timer
+
+[`ScopeTimer`](./include/benchmark/performance/scope_timer.hpp) measures the elapsed time between construction and destruction, then prints the duration in milliseconds to standard output. Keep the characters referenced by its `std::string_view` name alive for the timer's entire lifetime. Its unit test is in [`tests/benchmark/performance/`](./tests/benchmark/performance/).
+
 ## File readers
 
 The file reader API is declared in [`include/io/files/`](./include/io/files/):
@@ -58,10 +62,11 @@ From the repository root, the following commands configure, build, and run all t
 /opt/homebrew/bin/ctest --test-dir build --output-on-failure
 ```
 
-The tests are in [`tests/logging/`](./tests/logging/), [`tests/containers/`](./tests/containers/), and [`tests/io/files/`](./tests/io/files/). To run only one suite, filter by suite name:
+The tests are in [`tests/benchmark/performance/`](./tests/benchmark/performance/), [`tests/logging/`](./tests/logging/), [`tests/containers/`](./tests/containers/), and [`tests/io/files/`](./tests/io/files/). To run only one suite, filter by suite name:
 
 ```sh
 /opt/homebrew/bin/ctest --test-dir build -R 'ConsoleLoggerTest' --output-on-failure
 /opt/homebrew/bin/ctest --test-dir build -R 'FileLoggerTest' --output-on-failure
+/opt/homebrew/bin/ctest --test-dir build -R 'ScopeTimerTest' --output-on-failure
 /opt/homebrew/bin/ctest --test-dir build -R 'BinaryFileReaderTest' --output-on-failure
 ```

@@ -13,14 +13,18 @@
  *
  * The logger writes messages whose severity meets or exceeds the configured
  * threshold. Warning and more severe messages are flushed immediately.
+ * Configure the threshold during application startup by making the first
+ * @c instance() call with the desired level, before other code accesses the
+ * logger. Later calls should omit the level and return the same instance.
  */
 class ConsoleLogger : public Logger
 {
 public:
     /**
      * @brief Returns the process-wide console logger.
-     * @param level Threshold used when the singleton is first created. Later calls
-     * return the same logger and ignore this argument.
+     * @param level Threshold used only when the singleton is first created.
+     * Later calls return the same logger and ignore this argument; omit it
+     * when retrieving an already initialized logger.
      * @return Reference to the console logger.
      */
     static ConsoleLogger &instance(LogLevel level = LogLevel::kInfo);
