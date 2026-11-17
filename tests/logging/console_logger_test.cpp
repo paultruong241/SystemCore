@@ -4,45 +4,11 @@
  *****************************************************************************/
 
 #include "logging/console_logger.hpp"
+#include "utils/cout_capture.hpp"
 
 #include <gtest/gtest.h>
 
-#include <iostream>
-#include <sstream>
-#include <streambuf>
 #include <string>
-
-namespace
-{
-
-/**
- * @brief Captures standard output for assertions.
- */
-class CoutCapture
-{
-public:
-    CoutCapture() : previous_(std::cout.rdbuf(output_.rdbuf())) {}
-
-    ~CoutCapture()
-    {
-        std::cout.rdbuf(previous_);
-    }
-
-    /**
-     * @brief Returns the output captured so far.
-     * @return Captured text.
-     */
-    std::string str() const
-    {
-        return output_.str();
-    }
-
-private:
-    std::ostringstream output_;
-    std::streambuf *previous_;
-};
-
-} // namespace
 
 /**
  * @brief Verifies that messages below the configured level are suppressed.
@@ -50,7 +16,7 @@ private:
 TEST(ConsoleLoggerTest, FiltersMessagesBelowThreshold)
 {
     ConsoleLogger &logger = ConsoleLogger::instance(LogLevel::kWarning);
-    CoutCapture output;
+    test_utils::CoutCapture output;
 
     logger.log(LogLevel::kInfo, "filtered message");
 
@@ -64,7 +30,7 @@ TEST(ConsoleLoggerTest, WritesAcceptedMessagesWithLevelAndNewline)
 {
     ConsoleLogger &logger = ConsoleLogger::instance(LogLevel::kWarning);
     ConsoleLogger &same_logger = ConsoleLogger::instance(LogLevel::kError);
-    CoutCapture output;
+    test_utils::CoutCapture output;
 
     EXPECT_EQ(&same_logger, &logger);
     EXPECT_EQ(same_logger.getLogLevel(), LogLevel::kWarning);
