@@ -26,17 +26,23 @@ The file reader API is declared in [`include/io/files/`](./include/io/files/):
 
 Reads use the size captured at construction. Appended data is ignored, and truncating the file may cause a read to fail. `readChunk()` returns successfully with an empty buffer when no bytes remain.
 
-## Thread-safe queue
+## Concurrent containers
 
-[`include/containers/thread_safe_queue.hpp`](./include/containers/thread_safe_queue.hpp) provides the header-only `ThreadSafeQueue<T>`, a mutex-protected FIFO queue with copy and move `push` overloads. Its retrieval methods move values out of the queue:
+The containers API includes two mutex-protected FIFO queues and a circular buffer:
 
-- `wait_pop(std::stop_token)` blocks until a value is available or stop is
-  requested. It returns an empty optional if stopped first.
-- `try_pop()` returns immediately with an `std::optional<T>`, which is empty if the queue has no value.
-- `wait_pop_for(timeout)` waits for the specified `std::chrono::milliseconds` duration and returns an empty optional if it times out.
+- [`ConcurrentQueue<T>`](./include/containers/concurrent_queue.hpp) is unbounded. `push()` accepts copies and moves; `tryPop()` retrieves immediately, and `waitPop(stop)` waits for an item or cancellation.
+- [`ConcurrentBoundedQueue<T>`](./include/containers/concurrent_bounded_queue.hpp) has a fixed capacity (default `100`). `tryPush()` returns `false` when full; `waitPush(item, stop)` waits for capacity and returns `false` if stopped before space becomes available. `tryPop()` and `waitPop(stop)` provide immediate and cancellable retrieval.
+- [`ConcurrentCircularBuffer<T>`](./include/containers/concurrent_circular_buffer.hpp) has a fixed capacity (default `100`) and overwrites the oldest element when a new element arrives while full. `pushOverwrite()` accepts copies and moves; `tryPop()` returns the oldest element or `std::nullopt` when empty. `reset()` discards all stored elements.
 
-Use the stop-aware overload to cancel a waiting consumer. The queue has no
-close or shutdown operation.
+The `size()`/`count()`, `isEmpty()`, and `isFull()` methods return thread-safe snapshots, not reservations. Another thread can change a container immediately afterward; use its push/pop operation when the operation itself must be atomic. Neither queue currently has a close or shutdown operation.
+
+Container tests are in [`tests/containers/`](./tests/containers/). Run an individual suite with:
+
+```sh
+/opt/homebrew/bin/ctest --test-dir build -R 'ConcurrentQueueTest' --output-on-failure
+/opt/homebrew/bin/ctest --test-dir build -R 'ConcurrentBoundedQueueTest' --output-on-failure
+/opt/homebrew/bin/ctest --test-dir build -R 'ConcurrentCircularBufferTest' --output-on-failure
+```
 
 ## Build and test prerequisites
 
