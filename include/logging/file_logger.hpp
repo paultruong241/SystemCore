@@ -10,6 +10,9 @@
 #include <string>
 #include <string_view>
 
+namespace logging
+{
+
 /**
  * @brief Writes formatted log messages to a file.
  *
@@ -61,3 +64,5 @@ private:
      */
     bool openLogFile();
 };
+
+} // namespace logging

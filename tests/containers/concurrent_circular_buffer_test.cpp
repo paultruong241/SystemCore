@@ -14,6 +14,9 @@
 #include <thread>
 #include <vector>
 
+namespace containers
+{
+
 namespace
 {
 
@@ -310,3 +313,5 @@ TEST(ConcurrentCircularBufferTest, SupportsConcurrentProducersAndConsumers)
     }));
     EXPECT_TRUE(buffer.isEmpty());
 }
+
+} // namespace containers

@@ -11,6 +11,9 @@
 #include <limits>
 #include <string>
 
+namespace io::files
+{
+
 /**
  * @brief Provides input-file access and records its path and size.
  */
@@ -56,3 +59,5 @@ protected:
      */
     bool isStreamUsable() const;
 };
+
+} // namespace io::files

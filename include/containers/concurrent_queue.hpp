@@ -12,6 +12,9 @@
 #include <stop_token>
 #include <utility>
 
+namespace containers
+{
+
 /**
  * @brief A thread-safe, unbounded FIFO queue.
  *
@@ -127,3 +130,5 @@ private:
     /// Wakes waiting consumers when an element is added.
     std::condition_variable_any not_empty_cv_;
 };
+
+} // namespace containers

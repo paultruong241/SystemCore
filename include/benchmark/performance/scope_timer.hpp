@@ -7,6 +7,9 @@
 #include <chrono>
 #include <string_view>
 
+namespace benchmark::performance
+{
+
 /**
  * @brief Measures a scope's elapsed time and reports it to standard output.
  *
@@ -41,3 +44,5 @@ private:
     /// Time at which measurement began.
     std::chrono::time_point<std::chrono::steady_clock> m_start;
 };
+
+} // namespace benchmark::performance

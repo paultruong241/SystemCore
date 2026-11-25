@@ -14,6 +14,9 @@
 #include <string>
 #include <system_error>
 
+namespace logging
+{
+
 namespace
 {
 
@@ -147,3 +150,5 @@ TEST_F(FileLoggerTest, UsesCallerSuppliedFilename)
                                std::istreambuf_iterator<char>());
     EXPECT_NE(contents.find("custom filename message"), std::string::npos);
 }
+
+} // namespace logging

@@ -16,6 +16,9 @@
 #include <system_error>
 #include <vector>
 
+namespace io::files
+{
+
 /**
  * @brief Verifies that BinaryFileReader reads every byte, including null bytes.
  */
@@ -120,3 +123,5 @@ TEST(BinaryFileReaderTest, FailedReadCanBeRetried)
     std::filesystem::remove(file_path, error);
     EXPECT_FALSE(error) << error.message();
 }
+
+} // namespace io::files

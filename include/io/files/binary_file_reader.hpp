@@ -11,6 +11,9 @@
 #include <string>
 #include <vector>
 
+namespace io::files
+{
+
 /**
  * @brief Provides binary file reading in full or bounded chunks.
  *
@@ -60,3 +63,5 @@ private:
      */
     bool readBytes(std::vector<std::byte> &buffer, std::uintmax_t byte_count);
 };
+
+} // namespace io::files

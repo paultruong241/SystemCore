@@ -6,23 +6,23 @@ A collection of reusable C++ components, concurrency utilities, design patterns,
 
 The logging API is declared in [`include/logging/`](./include/logging/):
 
-- **`LogLevel`** defines the ordered severity levels `kTrace`, `kDebug`, `kInfo`, `kWarning`, `kError`, and `kFatal`. `logLevelToString` converts a level to its label.
-- **`Logger`** is the abstract base class. It stores a minimum severity threshold, synchronizes output, and formats log entries with a timestamp, severity, and thread ID.
-- **`ConsoleLogger`** is a process-wide singleton that writes accepted messages to standard output. `ConsoleLogger::instance(level)` uses `level` only on its first call; later calls return the same logger and ignore the argument. The default threshold is `kInfo`.
-- **`FileLogger`** writes accepted messages to a caller-supplied file or, by default, a timestamp-named file in the current working directory. Warning and more severe messages are flushed immediately; open and write failures are reported to standard error. Each instance has its own file and threshold.
+- **`logging::LogLevel`** defines the ordered severity levels `kTrace`, `kDebug`, `kInfo`, `kWarning`, `kError`, and `kFatal`. `logging::logLevelToString` converts a level to its label.
+- **`logging::Logger`** is the abstract base class. It stores a minimum severity threshold, synchronizes output, and formats log entries with a timestamp, severity, and thread ID.
+- **`logging::ConsoleLogger`** is a process-wide singleton that writes accepted messages to standard output. `logging::ConsoleLogger::instance(level)` uses `level` only on its first call; later calls return the same logger and ignore the argument. The default threshold is `kInfo`.
+- **`logging::FileLogger`** writes accepted messages to a caller-supplied file or, by default, a timestamp-named file in the current working directory. Warning and more severe messages are flushed immediately; open and write failures are reported to standard error. Each instance has its own file and threshold.
 
 Both concrete loggers omit messages below their threshold, which is fixed when each logger is constructed.
 
 ## Scope timer
 
-[`ScopeTimer`](./include/benchmark/performance/scope_timer.hpp) measures the elapsed time between construction and destruction, then prints the duration in milliseconds to standard output. Keep the characters referenced by its `std::string_view` name alive for the timer's entire lifetime. Its unit test is in [`tests/benchmark/performance/`](./tests/benchmark/performance/).
+[`benchmark::performance::ScopeTimer`](./include/benchmark/performance/scope_timer.hpp) measures the elapsed time between construction and destruction, then prints the duration in milliseconds to standard output. Keep the characters referenced by its `std::string_view` name alive for the timer's entire lifetime. Its unit test is in [`tests/benchmark/performance/`](./tests/benchmark/performance/).
 
 ## File readers
 
-The file reader API is declared in [`include/io/files/`](./include/io/files/):
+The `io::files` file reader API is declared in [`include/io/files/`](./include/io/files/):
 
-- **`FileReader`** opens an input file and records its path and size when constructed. The recorded size is a snapshot; it is not updated if the file changes.
-- **`BinaryFileReader`** reads binary data into a `std::vector<std::byte>`. `readAll()` reads from the beginning, while `readChunk(max_bytes)` reads up to the requested count from the current position. Both methods return `false` on failure and leave the output buffer empty.
+- **`io::files::FileReader`** opens an input file and records its path and size when constructed. The recorded size is a snapshot; it is not updated if the file changes.
+- **`io::files::BinaryFileReader`** reads binary data into a `std::vector<std::byte>`. `readAll()` reads from the beginning, while `readChunk(max_bytes)` reads up to the requested count from the current position. Both methods return `false` on failure and leave the output buffer empty.
 
 Reads use the size captured at construction. Appended data is ignored, and truncating the file may cause a read to fail. `readChunk()` returns successfully with an empty buffer when no bytes remain.
 
@@ -30,9 +30,9 @@ Reads use the size captured at construction. Appended data is ignored, and trunc
 
 The containers API includes two mutex-protected FIFO queues and a circular buffer:
 
-- [`ConcurrentQueue<T>`](./include/containers/concurrent_queue.hpp) is unbounded. `push()` accepts copies and moves; `tryPop()` retrieves immediately, and `waitPop(stop)` waits for an item or cancellation.
-- [`ConcurrentBoundedQueue<T>`](./include/containers/concurrent_bounded_queue.hpp) has a fixed capacity (default `100`). `tryPush()` returns `false` when full; `waitPush(item, stop)` waits for capacity and returns `false` if stopped before space becomes available. `tryPop()` and `waitPop(stop)` provide immediate and cancellable retrieval.
-- [`ConcurrentCircularBuffer<T>`](./include/containers/concurrent_circular_buffer.hpp) has a fixed capacity (default `100`) and overwrites the oldest element when a new element arrives while full. `pushOverwrite()` accepts copies and moves; `tryPop()` returns the oldest element or `std::nullopt` when empty. `reset()` discards all stored elements.
+- [`containers::ConcurrentQueue<T>`](./include/containers/concurrent_queue.hpp) is unbounded. `push()` accepts copies and moves; `tryPop()` retrieves immediately, and `waitPop(stop)` waits for an item or cancellation.
+- [`containers::ConcurrentBoundedQueue<T>`](./include/containers/concurrent_bounded_queue.hpp) has a fixed capacity (default `100`). `tryPush()` returns `false` when full; `waitPush(item, stop)` waits for capacity and returns `false` if stopped before space becomes available. `tryPop()` and `waitPop(stop)` provide immediate and cancellable retrieval.
+- [`containers::ConcurrentCircularBuffer<T>`](./include/containers/concurrent_circular_buffer.hpp) has a fixed capacity (default `100`) and overwrites the oldest element when a new element arrives while full. `pushOverwrite()` accepts copies and moves; `tryPop()` returns the oldest element or `std::nullopt` when empty. `reset()` discards all stored elements.
 
 The `size()`/`count()`, `isEmpty()`, and `isFull()` methods return thread-safe snapshots, not reservations. Another thread can change a container immediately afterward; use its push/pop operation when the operation itself must be atomic. Neither queue currently has a close or shutdown operation.
 

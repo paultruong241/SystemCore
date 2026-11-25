@@ -11,6 +11,9 @@
 #include <utility>
 #include <vector>
 
+namespace containers
+{
+
 /**
  * @brief A fixed-capacity, thread-safe circular buffer.
  *
@@ -206,3 +209,5 @@ private:
     /// Protects the buffer storage and indexes.
     mutable std::mutex mutex_;
 };
+
+} // namespace containers

@@ -8,6 +8,9 @@
 #include <iostream>
 #include <mutex>
 
+namespace logging
+{
+
 ConsoleLogger::ConsoleLogger(const LogLevel level) : Logger(level)
 {
     // Do nothing
@@ -35,3 +38,5 @@ void ConsoleLogger::log(const LogLevel level, const std::string_view msg)
         std::cout.flush();
     }
 }
+
+} // namespace logging

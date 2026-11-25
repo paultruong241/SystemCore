@@ -5,6 +5,9 @@
 
 #include "io/files/file_reader.hpp"
 
+namespace io::files
+{
+
 FileReader::FileReader(const std::string &file_path,
                        const std::ios_base::openmode open_mode) :
     file_path_(file_path),
@@ -17,3 +20,5 @@ bool FileReader::isStreamUsable() const
 {
     return file_stream_.is_open() && !file_stream_.bad();
 }
+
+} // namespace io::files

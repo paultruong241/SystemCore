@@ -8,6 +8,9 @@
 #include <chrono>
 #include <iostream>
 
+namespace benchmark::performance
+{
+
 ScopeTimer::ScopeTimer(const std::string_view name)
     : m_name(name), m_start(std::chrono::steady_clock::now())
 {
@@ -20,3 +23,5 @@ ScopeTimer::~ScopeTimer()
         std::chrono::duration<double, std::milli>(end - m_start).count();
     std::cout << "[Timer] " << m_name << ": " << duration << " ms\n";
 }
+
+} // namespace benchmark::performance

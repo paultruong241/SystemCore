@@ -10,6 +10,9 @@
 #include <sstream>
 #include <thread>
 
+namespace logging
+{
+
 Logger::Logger(const LogLevel level)
     : log_level_(level)
 {
@@ -45,3 +48,5 @@ std::string Logger::formatLogMessage(const LogLevel level, const std::string_vie
     return std::format("[{}][{}][{}] {}", formatTimestamp(),
                        logLevelToString(level), formatThreadId(), msg);
 }
+
+} // namespace logging

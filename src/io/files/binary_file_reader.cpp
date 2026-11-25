@@ -9,6 +9,9 @@
 #include <fstream>
 #include <iostream>
 
+namespace io::files
+{
+
 BinaryFileReader::BinaryFileReader(const std::string &file_path) :
     FileReader(file_path, std::ios::in | std::ios::binary)
 {
@@ -104,3 +107,5 @@ bool BinaryFileReader::readBytes(std::vector<std::byte> &buffer,
 
     return true;
 }
+
+} // namespace io::files

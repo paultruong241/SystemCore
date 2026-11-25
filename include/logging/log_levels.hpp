@@ -6,6 +6,9 @@
 
 #include <string_view>
 
+namespace logging
+{
+
 /**
  * @brief Represents the severity of a log message.
  *
@@ -55,3 +58,5 @@ constexpr std::string_view logLevelToString(const LogLevel level) noexcept
 
     return "UNKNOWN";
 }
+
+} // namespace logging

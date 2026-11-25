@@ -13,6 +13,9 @@
 #include <stop_token>
 #include <utility>
 
+namespace containers
+{
+
 /**
  * @brief A fixed-capacity, thread-safe FIFO queue.
  *
@@ -269,3 +272,5 @@ private:
     /// Wakes waiting producers when an element is removed.
     std::condition_variable_any not_full_cv_;
 };
+
+} // namespace containers

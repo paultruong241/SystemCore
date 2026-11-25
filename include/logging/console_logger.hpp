@@ -8,6 +8,9 @@
 
 #include <string_view>
 
+namespace logging
+{
+
 /**
  * @brief Writes formatted log messages to the console.
  *
@@ -43,3 +46,5 @@ private:
      */
     explicit ConsoleLogger(const LogLevel level);
 };
+
+} // namespace logging

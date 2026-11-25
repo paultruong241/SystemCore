@@ -16,6 +16,9 @@
 #include <thread>
 #include <vector>
 
+namespace containers
+{
+
 TEST(ConcurrentQueueTest, PushSupportsCopiesMovesAndFifoRetrieval)
 {
     ConcurrentQueue<std::string> queue;
@@ -119,3 +122,5 @@ TEST(ConcurrentQueueTest, HandlesConcurrentProducersAndConsumers)
     std::iota(expected_values.begin(), expected_values.end(), 0);
     EXPECT_EQ(actual_values, expected_values);
 }
+
+} // namespace containers

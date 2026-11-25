@@ -10,6 +10,9 @@
 
 #include <string>
 
+namespace logging
+{
+
 /**
  * @brief Verifies that messages below the configured level are suppressed.
  */
@@ -46,3 +49,5 @@ TEST(ConsoleLoggerTest, WritesAcceptedMessagesWithLevelAndNewline)
     ASSERT_FALSE(text.empty());
     EXPECT_EQ(text.back(), '\n');
 }
+
+} // namespace logging

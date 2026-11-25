@@ -10,6 +10,9 @@
 
 #include <string>
 
+namespace benchmark::performance
+{
+
 /**
  * @brief Verifies that the timer reports its label and elapsed milliseconds.
  */
@@ -24,3 +27,5 @@ TEST(ScopeTimerTest, ReportsElapsedTimeWhenDestroyed)
     EXPECT_TRUE(text.starts_with("[Timer] sample operation: "));
     EXPECT_TRUE(text.ends_with(" ms\n"));
 }
+
+} // namespace benchmark::performance

@@ -10,6 +10,9 @@
 #include <string>
 #include <string_view>
 
+namespace logging
+{
+
 /**
  * @brief Base class for loggers.
  *
@@ -89,3 +92,5 @@ private:
     /// Synchronizes access to log output.
     std::mutex log_mutex_{};
 };
+
+} // namespace logging

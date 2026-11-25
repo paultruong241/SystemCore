@@ -10,6 +10,9 @@
 #include <iostream>
 #include <mutex>
 
+namespace logging
+{
+
 FileLogger::FileLogger(const LogLevel level, std::string_view file_name) :
     Logger(level), filename_(file_name)
 {
@@ -66,3 +69,5 @@ bool FileLogger::openLogFile()
     log_file_.open(filename_, std::ios::out | std::ios::app);
     return log_file_.is_open();
 }
+
+} // namespace logging
