@@ -101,7 +101,7 @@ public:
     /**
      * @brief Removes all elements and resets both circular indexes without reopening the buffer.
      */
-    void reset()
+    void clear()
     {
         std::lock_guard<std::mutex> lock(mutex_);
 
@@ -144,7 +144,7 @@ public:
      * The result is a snapshot and may change immediately if another thread
      * modifies the buffer.
      */
-    bool isEmpty() const
+    bool empty() const
     {
         std::lock_guard<std::mutex> lock(mutex_);
         return count_ == 0;
@@ -157,7 +157,7 @@ public:
      * The result is a snapshot and may change immediately if another thread
      * modifies the buffer.
      */
-    bool isFull() const
+    bool full() const
     {
         std::lock_guard<std::mutex> lock(mutex_);
         return count_ == capacity_;
@@ -176,7 +176,7 @@ public:
      * @brief Returns the current number of stored elements.
      * @return A snapshot of the number of elements in the buffer.
      */
-    std::size_t count() const
+    std::size_t size() const
     {
         std::lock_guard<std::mutex> lock(mutex_);
         return count_;

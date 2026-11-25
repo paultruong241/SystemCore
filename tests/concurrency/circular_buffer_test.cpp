@@ -94,14 +94,14 @@ TEST(CircularBufferTest, OverwritesOldestElementWhenFull)
     buffer.pushOverwrite(3);
     buffer.pushOverwrite(4);
 
-    EXPECT_EQ(buffer.count(), 3);
-    EXPECT_TRUE(buffer.isFull());
+    EXPECT_EQ(buffer.size(), 3);
+    EXPECT_TRUE(buffer.full());
 
     expectPopValue(buffer, 2);
     expectPopValue(buffer, 3);
     expectPopValue(buffer, 4);
     EXPECT_EQ(buffer.tryPop().status, QueueStatus::kEmpty);
-    EXPECT_TRUE(buffer.isEmpty());
+    EXPECT_TRUE(buffer.empty());
 }
 
 TEST(CircularBufferTest, WrapsCorrectlyAfterTryPop)
@@ -148,16 +148,16 @@ TEST(CircularBufferTest, CopiesLvalueElements)
     expectPopValue(buffer, 42);
 }
 
-TEST(CircularBufferTest, ResetEmptiesBufferAndAllowsReuse)
+TEST(CircularBufferTest, ClearEmptiesBufferAndAllowsReuse)
 {
     CircularBuffer<int> buffer(2);
     buffer.pushOverwrite(1);
     buffer.pushOverwrite(2);
 
-    buffer.reset();
+    buffer.clear();
 
-    EXPECT_TRUE(buffer.isEmpty());
-    EXPECT_EQ(buffer.count(), 0);
+    EXPECT_TRUE(buffer.empty());
+    EXPECT_EQ(buffer.size(), 0);
     buffer.pushOverwrite(3);
     expectPopValue(buffer, 3);
 }
@@ -176,8 +176,8 @@ TEST(CircularBufferTest, CloseRejectsWritesAndPreservesBufferedValues)
     expectPopValue(buffer, 2);
     EXPECT_EQ(buffer.tryPop().status, QueueStatus::kClosed);
 
-    buffer.reset();
-    EXPECT_TRUE(buffer.isEmpty());
+    buffer.clear();
+    EXPECT_TRUE(buffer.empty());
     EXPECT_EQ(buffer.pushOverwrite(4), QueueStatus::kClosed);
 }
 
@@ -217,8 +217,8 @@ TEST(CircularBufferTest, SupportsConcurrentWriters)
         writer.join();
     }
 
-    ASSERT_TRUE(buffer.isFull());
-    ASSERT_EQ(buffer.count(), capacity);
+    ASSERT_TRUE(buffer.full());
+    ASSERT_EQ(buffer.size(), capacity);
 
     std::vector<int> values;
     values.reserve(capacity);
@@ -236,7 +236,7 @@ TEST(CircularBufferTest, SupportsConcurrentWriters)
         return value >= 0 &&
                value < static_cast<int>(writer_count * items_per_writer);
     }));
-    EXPECT_TRUE(buffer.isEmpty());
+    EXPECT_TRUE(buffer.empty());
 }
 
 TEST(CircularBufferTest, PreservesStateWhenElementAssignmentThrows)
@@ -249,12 +249,12 @@ TEST(CircularBufferTest, PreservesStateWhenElementAssignmentThrows)
     EXPECT_THROW(buffer.pushOverwrite(replacement), std::runtime_error);
     ThrowingValue::throw_on_copy_assignment = false;
 
-    ASSERT_EQ(buffer.count(), 1);
+    ASSERT_EQ(buffer.size(), 1);
     auto value = buffer.tryPop();
     ASSERT_EQ(value.status, QueueStatus::kSuccess);
     ASSERT_TRUE(value.value.has_value());
     EXPECT_EQ(value.value->value, 1);
-    EXPECT_TRUE(buffer.isEmpty());
+    EXPECT_TRUE(buffer.empty());
 }
 
 TEST(CircularBufferTest, PreservesStateWhenElementMoveThrows)
@@ -266,12 +266,12 @@ TEST(CircularBufferTest, PreservesStateWhenElementMoveThrows)
     EXPECT_THROW(buffer.tryPop(), std::runtime_error);
     ThrowingValue::throw_on_move = false;
 
-    ASSERT_EQ(buffer.count(), 1);
+    ASSERT_EQ(buffer.size(), 1);
     auto value = buffer.tryPop();
     ASSERT_EQ(value.status, QueueStatus::kSuccess);
     ASSERT_TRUE(value.value.has_value());
     EXPECT_EQ(value.value->value, 7);
-    EXPECT_TRUE(buffer.isEmpty());
+    EXPECT_TRUE(buffer.empty());
 }
 
 TEST(CircularBufferTest, SupportsConcurrentProducersAndConsumers)
@@ -344,7 +344,7 @@ TEST(CircularBufferTest, SupportsConcurrentProducersAndConsumers)
     EXPECT_TRUE(std::all_of(values.begin(), values.end(), [](const int value) {
         return value >= 0 && value < static_cast<int>(total_items);
     }));
-    EXPECT_TRUE(buffer.isEmpty());
+    EXPECT_TRUE(buffer.empty());
 }
 
 } // namespace systemcore::concurrency

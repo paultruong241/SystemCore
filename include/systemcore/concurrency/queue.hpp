@@ -150,7 +150,7 @@ public:
      * @brief Checks whether the queue is empty.
      * @return @c true if the queue is empty; otherwise @c false.
      */
-    bool isEmpty() const
+    bool empty() const
     {
         std::lock_guard<std::mutex> lock(mutex_);
         return queue_.empty();

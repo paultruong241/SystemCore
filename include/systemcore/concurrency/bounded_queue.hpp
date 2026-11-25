@@ -259,7 +259,7 @@ public:
      * @brief Checks whether the queue has reached its maximum capacity.
      * @return @c true if the queue is full; otherwise @c false.
      */
-    bool isFull() const
+    bool full() const
     {
         std::lock_guard<std::mutex> lock(mutex_);
         return queue_.size() == capacity_;
@@ -269,7 +269,7 @@ public:
      * @brief Checks whether the queue contains any elements.
      * @return @c true if the queue is empty; otherwise @c false.
      */
-    bool isEmpty() const
+    bool empty() const
     {
         std::lock_guard<std::mutex> lock(mutex_);
         return queue_.empty();

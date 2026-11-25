@@ -1,6 +1,6 @@
 /*****************************************************************************
  * @file bounded_queue_test.cpp
- * @brief Tests bounded queue capacity, blocking operations, and cancellation.
+ * @brief Tests capacity, blocking lifecycle operations, and concurrent access.
  *****************************************************************************/
 
 #include "systemcore/concurrency/bounded_queue.hpp"
@@ -8,7 +8,9 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
+#include <future>
 #include <numeric>
 #include <stop_token>
 #include <string>
@@ -49,22 +51,54 @@ TEST(BoundedQueueTest, WaitPushReturnsStoppedWhenCancelledAndFull)
     EXPECT_EQ(*value.value, 42);
 }
 
+TEST(BoundedQueueTest, WaitPushReturnsStoppedWhenCancelledWhileWaiting)
+{
+    BoundedQueue<int> queue(1);
+    ASSERT_EQ(queue.tryPush(42), QueueStatus::kSuccess);
+
+    std::stop_source stop_source;
+    std::promise<void> started;
+    auto started_future = started.get_future();
+    std::promise<QueueStatus> result;
+    auto result_future = result.get_future();
+
+    std::thread producer([&] {
+        started.set_value();
+        result.set_value(queue.waitPush(7, stop_source.get_token()));
+    });
+
+    started_future.wait();
+    EXPECT_EQ(
+        result_future.wait_for(std::chrono::milliseconds(20)),
+        std::future_status::timeout);
+    stop_source.request_stop();
+
+    if (result_future.wait_for(std::chrono::seconds(1)) !=
+        std::future_status::ready)
+    {
+        queue.close();
+    }
+
+    producer.join();
+    EXPECT_EQ(result_future.get(), QueueStatus::kStopped);
+}
+
 TEST(BoundedQueueTest, TryPushAndTryPopPreserveFifoAndCapacity)
 {
     BoundedQueue<std::string> queue(2);
 
     EXPECT_EQ(queue.capacity(), 2);
-    EXPECT_TRUE(queue.isEmpty());
+    EXPECT_TRUE(queue.empty());
     ASSERT_EQ(queue.tryPush("first"), QueueStatus::kSuccess);
     ASSERT_EQ(queue.tryPush("second"), QueueStatus::kSuccess);
-    EXPECT_TRUE(queue.isFull());
+    EXPECT_TRUE(queue.full());
     EXPECT_EQ(queue.tryPush("third"), QueueStatus::kFull);
 
     auto first = queue.tryPop();
     ASSERT_EQ(first.status, QueueStatus::kSuccess);
     ASSERT_TRUE(first.value.has_value());
     EXPECT_EQ(*first.value, "first");
-    EXPECT_FALSE(queue.isFull());
+    EXPECT_FALSE(queue.full());
 
     ASSERT_EQ(queue.tryPush("third"), QueueStatus::kSuccess);
     auto second = queue.tryPop();
@@ -75,7 +109,7 @@ TEST(BoundedQueueTest, TryPushAndTryPopPreserveFifoAndCapacity)
     ASSERT_TRUE(third.value.has_value());
     EXPECT_EQ(*second.value, "second");
     EXPECT_EQ(*third.value, "third");
-    EXPECT_TRUE(queue.isEmpty());
+    EXPECT_TRUE(queue.empty());
     EXPECT_EQ(queue.tryPop().status, QueueStatus::kEmpty);
 }
 
@@ -88,6 +122,121 @@ TEST(BoundedQueueTest, WaitPopReturnsStoppedWhenCancelled)
     EXPECT_EQ(
         queue.waitPop(stop_source.get_token()).status, QueueStatus::kStopped);
     EXPECT_FALSE(queue.isClosed());
+}
+
+TEST(BoundedQueueTest, WaitPopReturnsStoppedWhenCancelledWhileWaiting)
+{
+    BoundedQueue<int> queue(1);
+    std::stop_source stop_source;
+    std::promise<void> started;
+    auto started_future = started.get_future();
+    std::promise<QueueResult<int>> result;
+    auto result_future = result.get_future();
+
+    std::thread consumer([&] {
+        started.set_value();
+        result.set_value(queue.waitPop(stop_source.get_token()));
+    });
+
+    started_future.wait();
+    EXPECT_EQ(
+        result_future.wait_for(std::chrono::milliseconds(20)),
+        std::future_status::timeout);
+    stop_source.request_stop();
+
+    if (result_future.wait_for(std::chrono::seconds(1)) !=
+        std::future_status::ready)
+    {
+        queue.close();
+    }
+
+    consumer.join();
+    EXPECT_EQ(result_future.get().status, QueueStatus::kStopped);
+}
+
+TEST(BoundedQueueTest, WaitPopUnblocksAfterItemIsInserted)
+{
+    BoundedQueue<int> queue(1);
+    std::promise<void> started;
+    auto started_future = started.get_future();
+    std::promise<QueueResult<int>> result;
+    auto result_future = result.get_future();
+
+    std::thread consumer([&] {
+        started.set_value();
+        result.set_value(queue.waitPop(std::stop_token{}));
+    });
+
+    started_future.wait();
+    EXPECT_EQ(
+        result_future.wait_for(std::chrono::milliseconds(20)),
+        std::future_status::timeout);
+    const auto push_status = queue.tryPush(42);
+    EXPECT_EQ(push_status, QueueStatus::kSuccess);
+    if (push_status != QueueStatus::kSuccess)
+    {
+        queue.close();
+    }
+
+    const bool completed_after_insert =
+        result_future.wait_for(std::chrono::seconds(1)) ==
+        std::future_status::ready;
+    if (!completed_after_insert)
+    {
+        queue.close();
+    }
+
+    consumer.join();
+    const auto value = result_future.get();
+    EXPECT_TRUE(completed_after_insert);
+    ASSERT_EQ(value.status, QueueStatus::kSuccess);
+    ASSERT_TRUE(value.value.has_value());
+    EXPECT_EQ(*value.value, 42);
+}
+
+TEST(BoundedQueueTest, WaitPushUnblocksAfterCapacityBecomesAvailable)
+{
+    BoundedQueue<int> queue(1);
+    ASSERT_EQ(queue.tryPush(1), QueueStatus::kSuccess);
+    std::promise<void> started;
+    auto started_future = started.get_future();
+    std::promise<QueueStatus> result;
+    auto result_future = result.get_future();
+
+    std::thread producer([&] {
+        started.set_value();
+        result.set_value(queue.waitPush(2, std::stop_token{}));
+    });
+
+    started_future.wait();
+    EXPECT_EQ(
+        result_future.wait_for(std::chrono::milliseconds(20)),
+        std::future_status::timeout);
+    const auto first = queue.tryPop();
+    EXPECT_EQ(first.status, QueueStatus::kSuccess);
+    if (first.status != QueueStatus::kSuccess || !first.value)
+    {
+        queue.close();
+    }
+
+    const bool completed_after_pop =
+        result_future.wait_for(std::chrono::seconds(1)) ==
+        std::future_status::ready;
+    if (!completed_after_pop)
+    {
+        queue.close();
+    }
+
+    producer.join();
+    EXPECT_TRUE(completed_after_pop);
+    EXPECT_EQ(result_future.get(), QueueStatus::kSuccess);
+    ASSERT_EQ(first.status, QueueStatus::kSuccess);
+    ASSERT_TRUE(first.value.has_value());
+    EXPECT_EQ(*first.value, 1);
+    const auto second = queue.tryPop();
+    ASSERT_EQ(second.status, QueueStatus::kSuccess);
+    ASSERT_TRUE(second.value.has_value());
+    EXPECT_EQ(*second.value, 2);
 }
 
 TEST(BoundedQueueTest, CloseRejectsPushesAndDrainsExistingValues)
@@ -144,9 +293,9 @@ TEST(BoundedQueueTest, CloseReleasesWaitingConsumer)
 
 TEST(BoundedQueueTest, HandlesConcurrentProducersAndConsumers)
 {
-    constexpr std::size_t producer_count = 2;
-    constexpr std::size_t consumer_count = 2;
-    constexpr std::size_t items_per_producer = 100;
+    constexpr std::size_t producer_count = 4;
+    constexpr std::size_t consumer_count = 4;
+    constexpr std::size_t items_per_producer = 1'000;
     constexpr std::size_t items_per_consumer =
         producer_count * items_per_producer / consumer_count;
     constexpr std::size_t total_items = producer_count * items_per_producer;
