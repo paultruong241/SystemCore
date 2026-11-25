@@ -53,11 +53,13 @@ Reads use the size captured at construction. Appended data is ignored, and trunc
 
 The concurrency API includes thread-safe queues and a circular buffer:
 
-- [`systemcore::concurrency::Queue<T>`](./include/systemcore/concurrency/queue.hpp) is unbounded. `push()` accepts copies and moves; `tryPop()` retrieves immediately, and `waitPop(stop)` waits for an item or cancellation.
-- [`systemcore::concurrency::BoundedQueue<T>`](./include/systemcore/concurrency/bounded_queue.hpp) has a fixed capacity (default `100`). `tryPush()` returns `false` when full; `waitPush(item, stop)` waits for capacity and returns `false` if stopped before space becomes available. `tryPop()` and `waitPop(stop)` provide immediate and cancellable retrieval.
-- [`systemcore::concurrency::CircularBuffer<T>`](./include/systemcore/concurrency/circular_buffer.hpp) has a fixed capacity (default `100`) and overwrites the oldest element when a new element arrives while full. `pushOverwrite()` accepts copies and moves; `tryPop()` returns the oldest element or `std::nullopt` when empty. `reset()` discards all stored elements.
+- [`systemcore::concurrency::Queue<T>`](./include/systemcore/concurrency/queue.hpp) is unbounded. `push()` accepts copies and moves and returns a `QueueStatus`; `tryPop()` and `waitPop(stop)` return a `QueueResult<T>` containing the status and, on success, the item.
+- [`systemcore::concurrency::BoundedQueue<T>`](./include/systemcore/concurrency/bounded_queue.hpp) has a fixed capacity (default `100`). `tryPush()` returns `kFull` when full; `waitPush(item, stop)` returns `kStopped` if cancelled. Both report `kClosed` after closure; pop operations return a `QueueResult<T>`.
+- [`systemcore::concurrency::CircularBuffer<T>`](./include/systemcore/concurrency/circular_buffer.hpp) has a fixed capacity (default `100`) and overwrites the oldest element when a new element arrives while full. `pushOverwrite()` returns a `QueueStatus`; `tryPop()` returns a `QueueResult<T>`. `reset()` discards all stored elements.
 
-The `size()`/`count()`, `isEmpty()`, and `isFull()` methods return thread-safe snapshots, not reservations. Another thread can change a container immediately afterward; use its push/pop operation when the operation itself must be atomic. Neither queue currently has a close or shutdown operation.
+`QueueStatus` distinguishes success, an open-and-empty non-blocking pop (`kEmpty`), closure (`kClosed`), per-operation cancellation (`kStopped`), and a full bounded queue (`kFull`). A `QueueResult<T>` contains a value only when its status is `kSuccess`. Calling `close()` persistently rejects new writes but preserves queued elements for consumers to drain; a closed, drained pop reports `kClosed`. In `Queue` and `BoundedQueue`, a `std::stop_token` cancels only its individual wait and does not close the queue; closing a bounded queue also wakes blocked producers. Closing a `CircularBuffer` rejects future writes while preserving existing elements, and `reset()` does not reopen it.
+
+The `size()`/`count()`, `isEmpty()`, `isFull()`, and `isClosed()` methods return thread-safe snapshots, not reservations. Another thread can change a container immediately afterward; use its push/pop operation when the operation itself must be atomic.
 
 Concurrency tests are in [`tests/concurrency/`](./tests/concurrency/). Run an individual suite with:
 

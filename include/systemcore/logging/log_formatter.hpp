@@ -4,7 +4,7 @@
  *****************************************************************************/
 #pragma once
 
-#include "log_record.hpp"
+#include "systemcore/logging/log_record.hpp"
 
 #include <string>
 

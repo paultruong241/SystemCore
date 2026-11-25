@@ -22,26 +22,31 @@ TEST(BoundedQueueTest, WaitPushInsertsWhenCapacityIsAvailable)
 {
     BoundedQueue<int> queue(1);
 
-    EXPECT_TRUE(queue.waitPush(42, std::stop_token{}));
+    EXPECT_EQ(
+        queue.waitPush(42, std::stop_token{}), QueueStatus::kSuccess);
 
     const auto value = queue.waitPop(std::stop_token{});
-    ASSERT_TRUE(value.has_value());
-    EXPECT_EQ(*value, 42);
+    ASSERT_EQ(value.status, QueueStatus::kSuccess);
+    ASSERT_TRUE(value.value.has_value());
+    EXPECT_EQ(*value.value, 42);
 }
 
-TEST(BoundedQueueTest, WaitPushReturnsFalseWhenCancelledAndFull)
+TEST(BoundedQueueTest, WaitPushReturnsStoppedWhenCancelledAndFull)
 {
     BoundedQueue<int> queue(1);
-    ASSERT_TRUE(queue.tryPush(42));
+    ASSERT_EQ(queue.tryPush(42), QueueStatus::kSuccess);
 
     std::stop_source stop_source;
     stop_source.request_stop();
 
-    EXPECT_FALSE(queue.waitPush(7, stop_source.get_token()));
+    EXPECT_EQ(
+        queue.waitPush(7, stop_source.get_token()), QueueStatus::kStopped);
+    EXPECT_FALSE(queue.isClosed());
 
     const auto value = queue.waitPop(std::stop_token{});
-    ASSERT_TRUE(value.has_value());
-    EXPECT_EQ(*value, 42);
+    ASSERT_EQ(value.status, QueueStatus::kSuccess);
+    ASSERT_TRUE(value.value.has_value());
+    EXPECT_EQ(*value.value, 42);
 }
 
 TEST(BoundedQueueTest, TryPushAndTryPopPreserveFifoAndCapacity)
@@ -50,33 +55,91 @@ TEST(BoundedQueueTest, TryPushAndTryPopPreserveFifoAndCapacity)
 
     EXPECT_EQ(queue.capacity(), 2);
     EXPECT_TRUE(queue.isEmpty());
-    ASSERT_TRUE(queue.tryPush("first"));
-    ASSERT_TRUE(queue.tryPush("second"));
+    ASSERT_EQ(queue.tryPush("first"), QueueStatus::kSuccess);
+    ASSERT_EQ(queue.tryPush("second"), QueueStatus::kSuccess);
     EXPECT_TRUE(queue.isFull());
-    EXPECT_FALSE(queue.tryPush("third"));
+    EXPECT_EQ(queue.tryPush("third"), QueueStatus::kFull);
 
     auto first = queue.tryPop();
-    ASSERT_TRUE(first.has_value());
-    EXPECT_EQ(*first, "first");
+    ASSERT_EQ(first.status, QueueStatus::kSuccess);
+    ASSERT_TRUE(first.value.has_value());
+    EXPECT_EQ(*first.value, "first");
     EXPECT_FALSE(queue.isFull());
 
-    ASSERT_TRUE(queue.tryPush("third"));
+    ASSERT_EQ(queue.tryPush("third"), QueueStatus::kSuccess);
     auto second = queue.tryPop();
     auto third = queue.tryPop();
-    ASSERT_TRUE(second.has_value());
-    ASSERT_TRUE(third.has_value());
-    EXPECT_EQ(*second, "second");
-    EXPECT_EQ(*third, "third");
+    ASSERT_EQ(second.status, QueueStatus::kSuccess);
+    ASSERT_EQ(third.status, QueueStatus::kSuccess);
+    ASSERT_TRUE(second.value.has_value());
+    ASSERT_TRUE(third.value.has_value());
+    EXPECT_EQ(*second.value, "second");
+    EXPECT_EQ(*third.value, "third");
     EXPECT_TRUE(queue.isEmpty());
+    EXPECT_EQ(queue.tryPop().status, QueueStatus::kEmpty);
 }
 
-TEST(BoundedQueueTest, WaitPopReturnsEmptyWhenCancelled)
+TEST(BoundedQueueTest, WaitPopReturnsStoppedWhenCancelled)
 {
     BoundedQueue<int> queue(1);
     std::stop_source stop_source;
     stop_source.request_stop();
 
-    EXPECT_FALSE(queue.waitPop(stop_source.get_token()).has_value());
+    EXPECT_EQ(
+        queue.waitPop(stop_source.get_token()).status, QueueStatus::kStopped);
+    EXPECT_FALSE(queue.isClosed());
+}
+
+TEST(BoundedQueueTest, CloseRejectsPushesAndDrainsExistingValues)
+{
+    BoundedQueue<int> queue(1);
+    ASSERT_EQ(queue.tryPush(1), QueueStatus::kSuccess);
+
+    queue.close();
+
+    EXPECT_TRUE(queue.isClosed());
+    EXPECT_EQ(queue.tryPush(2), QueueStatus::kClosed);
+    EXPECT_EQ(
+        queue.waitPush(2, std::stop_token{}), QueueStatus::kClosed);
+
+    const auto existing = queue.waitPop(std::stop_token{});
+    ASSERT_EQ(existing.status, QueueStatus::kSuccess);
+    ASSERT_TRUE(existing.value.has_value());
+    EXPECT_EQ(*existing.value, 1);
+    EXPECT_EQ(queue.waitPop(std::stop_token{}).status, QueueStatus::kClosed);
+    EXPECT_EQ(queue.tryPop().status, QueueStatus::kClosed);
+}
+
+TEST(BoundedQueueTest, CloseReleasesWaitingProducer)
+{
+    BoundedQueue<int> queue(1);
+    ASSERT_EQ(queue.tryPush(1), QueueStatus::kSuccess);
+    QueueStatus result = QueueStatus::kSuccess;
+
+    std::thread producer([&] {
+        result = queue.waitPush(2, std::stop_token{});
+    });
+
+    queue.close();
+    producer.join();
+
+    EXPECT_EQ(result, QueueStatus::kClosed);
+    EXPECT_TRUE(queue.isClosed());
+}
+
+TEST(BoundedQueueTest, CloseReleasesWaitingConsumer)
+{
+    BoundedQueue<int> queue(1);
+    QueueStatus result = QueueStatus::kSuccess;
+
+    std::thread consumer([&] {
+        result = queue.waitPop(std::stop_token{}).status;
+    });
+
+    queue.close();
+    consumer.join();
+
+    EXPECT_EQ(result, QueueStatus::kClosed);
 }
 
 TEST(BoundedQueueTest, HandlesConcurrentProducersAndConsumers)
@@ -99,10 +162,10 @@ TEST(BoundedQueueTest, HandlesConcurrentProducersAndConsumers)
             values.reserve(items_per_consumer);
             for (std::size_t i = 0; i < items_per_consumer; ++i)
             {
-                const auto value = queue.waitPop(std::stop_token{});
-                if (value)
+                const auto result = queue.waitPop(std::stop_token{});
+                if (result.status == QueueStatus::kSuccess && result.value)
                 {
-                    values.push_back(*value);
+                    values.push_back(*result.value);
                 }
             }
         });

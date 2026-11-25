@@ -4,6 +4,8 @@
  *****************************************************************************/
 #pragma once
 
+#include "systemcore/concurrency/queue_status.hpp"
+
 #include <cstddef>
 #include <mutex>
 #include <optional>
@@ -20,7 +22,8 @@ namespace systemcore::concurrency
  * Elements are removed in FIFO order. @c head_index_ identifies the next slot
  * to write, while @c tail_index_ identifies the oldest element to remove.
  * Both indexes wrap to zero at the end of the storage. Inserting into a full
- * buffer overwrites and discards its oldest element.
+ * buffer overwrites and discards its oldest element. Closing rejects future
+ * writes while leaving existing elements available for retrieval.
  *
  * @tparam T Type of elements stored in the buffer.
  */
@@ -44,46 +47,59 @@ public:
     }
 
     /**
-     * @brief Copies an element into the buffer, overwriting the oldest if full.
+     * @brief Copies an element unless closed, overwriting the oldest if full.
      * @param item Element to copy into the buffer.
+     * @return @c kSuccess if inserted or @c kClosed if the buffer is closed.
      */
-    void pushOverwrite(const T &item)
+    QueueStatus pushOverwrite(const T &item)
     {
         std::lock_guard<std::mutex> lock(mutex_);
+        if (closed_)
+        {
+            return QueueStatus::kClosed;
+        }
         overwritePush(item);
+        return QueueStatus::kSuccess;
     }
 
     /**
-     * @brief Moves an element into the buffer, overwriting the oldest if full.
+     * @brief Moves an element unless closed, overwriting the oldest if full.
      * @param item Element to move into the buffer.
+     * @return @c kSuccess if inserted or @c kClosed if the buffer is closed.
      */
-    void pushOverwrite(T &&item)
+    QueueStatus pushOverwrite(T &&item)
     {
         std::lock_guard<std::mutex> lock(mutex_);
+        if (closed_)
+        {
+            return QueueStatus::kClosed;
+        }
         overwritePush(std::move(item));
+        return QueueStatus::kSuccess;
     }
 
     /**
      * @brief Removes and returns the oldest element if one is available.
-     * @return The oldest element, or @c std::nullopt if the buffer is empty.
+     * @return The oldest value and @c kSuccess, @c kEmpty if open and empty,
+     *         or @c kClosed if closed and empty.
      */
-    std::optional<T> tryPop()
+    QueueResult<T> tryPop()
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (count_ == 0)
         {
-            return std::nullopt;
+            return {closed_ ? QueueStatus::kClosed : QueueStatus::kEmpty, {}};
         }
 
         std::optional<T> item(std::move(buffer_[tail_index_]));
         buffer_[tail_index_].reset();
         tail_index_ = (tail_index_ + 1) % capacity_;
         --count_;
-        return item;
+        return {QueueStatus::kSuccess, std::move(item)};
     }
 
     /**
-     * @brief Removes all elements and resets both circular indexes.
+     * @brief Removes all elements and resets both circular indexes without reopening the buffer.
      */
     void reset()
     {
@@ -97,6 +113,28 @@ public:
         head_index_ = 0;
         tail_index_ = 0;
         count_ = 0;
+    }
+
+    /**
+     * @brief Closes the buffer so future writes are rejected.
+     *
+     * Existing elements remain available for retrieval. Repeated calls have
+     * no additional effect.
+     */
+    void close()
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        closed_ = true;
+    }
+
+    /**
+     * @brief Checks whether the buffer has been closed.
+     * @return @c true if closed; otherwise @c false.
+     */
+    bool isClosed() const
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return closed_;
     }
 
     /**
@@ -208,6 +246,9 @@ private:
 
     /// Protects the buffer storage and indexes.
     mutable std::mutex mutex_;
+
+    /// Rejects future writes after close() is called.
+    bool closed_{false};
 };
 
 } // namespace systemcore::concurrency

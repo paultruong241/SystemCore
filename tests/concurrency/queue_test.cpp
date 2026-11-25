@@ -25,39 +25,86 @@ TEST(QueueTest, PushSupportsCopiesMovesAndFifoRetrieval)
     const std::string first = "first";
     std::string second = "second";
 
-    queue.push(first);
-    queue.push(std::move(second));
+    EXPECT_EQ(queue.push(first), QueueStatus::kSuccess);
+    EXPECT_EQ(queue.push(std::move(second)), QueueStatus::kSuccess);
 
     EXPECT_EQ(queue.size(), 2);
     EXPECT_FALSE(queue.isEmpty());
 
     auto first_value = queue.tryPop();
     auto second_value = queue.waitPop(std::stop_token{});
-    ASSERT_TRUE(first_value.has_value());
-    ASSERT_TRUE(second_value.has_value());
-    EXPECT_EQ(*first_value, "first");
-    EXPECT_EQ(*second_value, "second");
+    ASSERT_EQ(first_value.status, QueueStatus::kSuccess);
+    ASSERT_EQ(second_value.status, QueueStatus::kSuccess);
+    ASSERT_TRUE(first_value.value.has_value());
+    ASSERT_TRUE(second_value.value.has_value());
+    EXPECT_EQ(*first_value.value, "first");
+    EXPECT_EQ(*second_value.value, "second");
     EXPECT_TRUE(queue.isEmpty());
+    EXPECT_EQ(queue.tryPop().status, QueueStatus::kEmpty);
 }
 
 TEST(QueueTest, SupportsMoveOnlyValues)
 {
     Queue<std::unique_ptr<int>> queue;
-    queue.push(std::make_unique<int>(42));
+    ASSERT_EQ(queue.push(std::make_unique<int>(42)), QueueStatus::kSuccess);
 
     auto value = queue.tryPop();
-    ASSERT_TRUE(value.has_value());
-    ASSERT_NE(*value, nullptr);
-    EXPECT_EQ(**value, 42);
+    ASSERT_EQ(value.status, QueueStatus::kSuccess);
+    ASSERT_TRUE(value.value.has_value());
+    ASSERT_NE(*value.value, nullptr);
+    EXPECT_EQ(**value.value, 42);
 }
 
-TEST(QueueTest, WaitPopReturnsEmptyWhenCancelled)
+TEST(QueueTest, WaitPopReturnsStoppedWhenCancelled)
 {
     Queue<int> queue;
     std::stop_source stop_source;
     stop_source.request_stop();
 
-    EXPECT_FALSE(queue.waitPop(stop_source.get_token()).has_value());
+    EXPECT_EQ(
+        queue.waitPop(stop_source.get_token()).status, QueueStatus::kStopped);
+    EXPECT_FALSE(queue.isClosed());
+    EXPECT_EQ(queue.push(42), QueueStatus::kSuccess);
+}
+
+TEST(QueueTest, CloseRejectsPushesAndDrainsExistingValues)
+{
+    Queue<int> queue;
+    ASSERT_EQ(queue.push(1), QueueStatus::kSuccess);
+    ASSERT_EQ(queue.push(2), QueueStatus::kSuccess);
+
+    queue.close();
+    queue.close();
+
+    EXPECT_TRUE(queue.isClosed());
+    EXPECT_EQ(queue.push(3), QueueStatus::kClosed);
+    EXPECT_EQ(queue.push(4), QueueStatus::kClosed);
+
+    const auto first = queue.waitPop(std::stop_token{});
+    const auto second = queue.waitPop(std::stop_token{});
+    ASSERT_EQ(first.status, QueueStatus::kSuccess);
+    ASSERT_EQ(second.status, QueueStatus::kSuccess);
+    ASSERT_TRUE(first.value.has_value());
+    ASSERT_TRUE(second.value.has_value());
+    EXPECT_EQ(*first.value, 1);
+    EXPECT_EQ(*second.value, 2);
+    EXPECT_EQ(queue.waitPop(std::stop_token{}).status, QueueStatus::kClosed);
+    EXPECT_EQ(queue.tryPop().status, QueueStatus::kClosed);
+}
+
+TEST(QueueTest, CloseReleasesWaitingConsumer)
+{
+    Queue<int> queue;
+    QueueStatus result = QueueStatus::kSuccess;
+
+    std::thread consumer([&] {
+        result = queue.waitPop(std::stop_token{}).status;
+    });
+
+    queue.close();
+    consumer.join();
+
+    EXPECT_EQ(result, QueueStatus::kClosed);
 }
 
 TEST(QueueTest, HandlesConcurrentProducersAndConsumers)
@@ -80,10 +127,10 @@ TEST(QueueTest, HandlesConcurrentProducersAndConsumers)
             values.reserve(items_per_consumer);
             for (std::size_t i = 0; i < items_per_consumer; ++i)
             {
-                const auto value = queue.waitPop(std::stop_token{});
-                if (value)
+                const auto result = queue.waitPop(std::stop_token{});
+                if (result.status == QueueStatus::kSuccess && result.value)
                 {
-                    values.push_back(*value);
+                    values.push_back(*result.value);
                 }
             }
         });

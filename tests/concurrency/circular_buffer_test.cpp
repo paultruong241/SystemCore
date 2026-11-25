@@ -74,6 +74,15 @@ struct ThrowingValue
 bool ThrowingValue::throw_on_copy_assignment{false};
 bool ThrowingValue::throw_on_move{false};
 
+template <typename T>
+void expectPopValue(CircularBuffer<T> &buffer, const T &expected)
+{
+    const auto result = buffer.tryPop();
+    ASSERT_EQ(result.status, QueueStatus::kSuccess);
+    ASSERT_TRUE(result.value.has_value());
+    EXPECT_EQ(*result.value, expected);
+}
+
 } // namespace
 
 TEST(CircularBufferTest, OverwritesOldestElementWhenFull)
@@ -88,10 +97,10 @@ TEST(CircularBufferTest, OverwritesOldestElementWhenFull)
     EXPECT_EQ(buffer.count(), 3);
     EXPECT_TRUE(buffer.isFull());
 
-    EXPECT_EQ(buffer.tryPop(), 2);
-    EXPECT_EQ(buffer.tryPop(), 3);
-    EXPECT_EQ(buffer.tryPop(), 4);
-    EXPECT_FALSE(buffer.tryPop().has_value());
+    expectPopValue(buffer, 2);
+    expectPopValue(buffer, 3);
+    expectPopValue(buffer, 4);
+    EXPECT_EQ(buffer.tryPop().status, QueueStatus::kEmpty);
     EXPECT_TRUE(buffer.isEmpty());
 }
 
@@ -102,12 +111,12 @@ TEST(CircularBufferTest, WrapsCorrectlyAfterTryPop)
     buffer.pushOverwrite(2);
     buffer.pushOverwrite(3);
 
-    EXPECT_EQ(buffer.tryPop(), 1);
+    expectPopValue(buffer, 1);
     buffer.pushOverwrite(4);
 
-    EXPECT_EQ(buffer.tryPop(), 2);
-    EXPECT_EQ(buffer.tryPop(), 3);
-    EXPECT_EQ(buffer.tryPop(), 4);
+    expectPopValue(buffer, 2);
+    expectPopValue(buffer, 3);
+    expectPopValue(buffer, 4);
 }
 
 TEST(CircularBufferTest, SupportsMoveOnlyElements)
@@ -122,9 +131,10 @@ TEST(CircularBufferTest, SupportsMoveOnlyElements)
     ASSERT_FALSE(second);
 
     auto value = buffer.tryPop();
-    ASSERT_TRUE(value.has_value());
-    ASSERT_NE(*value, nullptr);
-    EXPECT_EQ(**value, 2);
+    ASSERT_EQ(value.status, QueueStatus::kSuccess);
+    ASSERT_TRUE(value.value.has_value());
+    ASSERT_NE(*value.value, nullptr);
+    EXPECT_EQ(**value.value, 2);
 }
 
 TEST(CircularBufferTest, CopiesLvalueElements)
@@ -135,7 +145,7 @@ TEST(CircularBufferTest, CopiesLvalueElements)
     buffer.pushOverwrite(item);
 
     EXPECT_EQ(item, 42);
-    EXPECT_EQ(buffer.tryPop(), 42);
+    expectPopValue(buffer, 42);
 }
 
 TEST(CircularBufferTest, ResetEmptiesBufferAndAllowsReuse)
@@ -149,7 +159,26 @@ TEST(CircularBufferTest, ResetEmptiesBufferAndAllowsReuse)
     EXPECT_TRUE(buffer.isEmpty());
     EXPECT_EQ(buffer.count(), 0);
     buffer.pushOverwrite(3);
-    EXPECT_EQ(buffer.tryPop(), 3);
+    expectPopValue(buffer, 3);
+}
+
+TEST(CircularBufferTest, CloseRejectsWritesAndPreservesBufferedValues)
+{
+    CircularBuffer<int> buffer(2);
+    ASSERT_EQ(buffer.pushOverwrite(1), QueueStatus::kSuccess);
+    ASSERT_EQ(buffer.pushOverwrite(2), QueueStatus::kSuccess);
+
+    buffer.close();
+
+    EXPECT_TRUE(buffer.isClosed());
+    EXPECT_EQ(buffer.pushOverwrite(3), QueueStatus::kClosed);
+    expectPopValue(buffer, 1);
+    expectPopValue(buffer, 2);
+    EXPECT_EQ(buffer.tryPop().status, QueueStatus::kClosed);
+
+    buffer.reset();
+    EXPECT_TRUE(buffer.isEmpty());
+    EXPECT_EQ(buffer.pushOverwrite(4), QueueStatus::kClosed);
 }
 
 TEST(CircularBufferTest, RejectsZeroCapacity)
@@ -196,8 +225,9 @@ TEST(CircularBufferTest, SupportsConcurrentWriters)
     for (std::size_t i = 0; i < capacity; ++i)
     {
         const auto value = buffer.tryPop();
-        ASSERT_TRUE(value.has_value());
-        values.push_back(*value);
+        ASSERT_EQ(value.status, QueueStatus::kSuccess);
+        ASSERT_TRUE(value.value.has_value());
+        values.push_back(*value.value);
     }
 
     std::sort(values.begin(), values.end());
@@ -221,8 +251,9 @@ TEST(CircularBufferTest, PreservesStateWhenElementAssignmentThrows)
 
     ASSERT_EQ(buffer.count(), 1);
     auto value = buffer.tryPop();
-    ASSERT_TRUE(value.has_value());
-    EXPECT_EQ(value->value, 1);
+    ASSERT_EQ(value.status, QueueStatus::kSuccess);
+    ASSERT_TRUE(value.value.has_value());
+    EXPECT_EQ(value.value->value, 1);
     EXPECT_TRUE(buffer.isEmpty());
 }
 
@@ -237,8 +268,9 @@ TEST(CircularBufferTest, PreservesStateWhenElementMoveThrows)
 
     ASSERT_EQ(buffer.count(), 1);
     auto value = buffer.tryPop();
-    ASSERT_TRUE(value.has_value());
-    EXPECT_EQ(value->value, 7);
+    ASSERT_EQ(value.status, QueueStatus::kSuccess);
+    ASSERT_TRUE(value.value.has_value());
+    EXPECT_EQ(value.value->value, 7);
     EXPECT_TRUE(buffer.isEmpty());
 }
 
@@ -260,9 +292,10 @@ TEST(CircularBufferTest, SupportsConcurrentProducersAndConsumers)
         consumers.emplace_back([&, consumer] {
             while (true)
             {
-                if (auto value = buffer.tryPop())
+                const auto result = buffer.tryPop();
+                if (result.status == QueueStatus::kSuccess)
                 {
-                    consumed[consumer].push_back(*value);
+                    consumed[consumer].push_back(*result.value);
                 }
                 else if (completed_producers.load(std::memory_order_acquire) ==
                          producer_count)

@@ -4,6 +4,8 @@
  *****************************************************************************/
 #pragma once
 
+#include "systemcore/concurrency/queue_status.hpp"
+
 #include <condition_variable>
 #include <cstddef>
 #include <mutex>
@@ -19,7 +21,8 @@ namespace systemcore::concurrency
  * @brief A thread-safe, unbounded FIFO queue.
  *
  * Elements are inserted at the back and removed from the front. Retrieval can
- * either return immediately or wait until an element is available.
+ * either return immediately or wait until an element is available. Closing the
+ * queue rejects new elements and lets consumers drain the remaining elements.
  *
  * @tparam T Type of elements stored in the queue.
  */
@@ -28,44 +31,57 @@ class Queue
 {
 public:
     /**
-     * @brief Copies an element into the queue.
+     * @brief Copies an element into the queue unless it is closed.
      * @param item Element to copy into the queue.
+     * @return @c kSuccess if inserted; @c kClosed if the queue is closed.
      */
-    void push(const T &item)
+    QueueStatus push(const T &item)
     {
         {
             std::lock_guard<std::mutex> lock(mutex_);
+            if (closed_)
+            {
+                return QueueStatus::kClosed;
+            }
             queue_.push(item);
         }
 
         not_empty_cv_.notify_one();
+        return QueueStatus::kSuccess;
     }
 
     /**
-     * @brief Moves an element into the queue.
+     * @brief Moves an element into the queue unless it is closed.
      * @param item Element to move into the queue.
+     * @return @c kSuccess if inserted; @c kClosed if the queue is closed.
      */
-    void push(T &&item)
+    QueueStatus push(T &&item)
     {
         {
             std::lock_guard<std::mutex> lock(mutex_);
+            if (closed_)
+            {
+                return QueueStatus::kClosed;
+            }
             queue_.push(std::move(item));
         }
 
         not_empty_cv_.notify_one();
+        return QueueStatus::kSuccess;
     }
 
     /**
      * @brief Attempts to remove the oldest element without blocking.
-     * @return The oldest element, or std::nullopt if the queue is empty.
+     * @return The oldest value and @c kSuccess, @c kEmpty if open and empty,
+     *         or @c kClosed if closed and empty.
      */
-    std::optional<T> tryPop()
+    QueueResult<T> tryPop()
     {
         std::lock_guard<std::mutex> lock(mutex_);
 
         if (queue_.empty())
         {
-            return std::nullopt;
+            return {closed_ ? QueueStatus::kClosed : QueueStatus::kEmpty, {}};
         }
 
         std::optional<T> item(
@@ -73,23 +89,28 @@ public:
 
         queue_.pop();
 
-        return item;
+        return {QueueStatus::kSuccess, std::move(item)};
     }
 
     /**
-     * @brief Waits for an element and removes it, or returns when stopped.
+     * @brief Waits for an element and removes it, or returns when stopped or closed.
      * @param stop Token used to cancel the wait.
-     * @return The oldest element, or std::nullopt if stopped before
-     *         an element becomes available.
+     * @return The oldest value and @c kSuccess, @c kStopped if cancelled, or
+     *         @c kClosed if closed after all queued elements are removed.
      */
-    std::optional<T> waitPop(std::stop_token stop)
+    QueueResult<T> waitPop(std::stop_token stop)
     {
         std::unique_lock<std::mutex> lock(mutex_);
 
         if (!not_empty_cv_.wait(
-                lock, stop, [this]{ return !queue_.empty(); }))
+                lock, stop, [this] { return closed_ || !queue_.empty(); }))
         {
-            return std::nullopt;
+            return {QueueStatus::kStopped, {}};
+        }
+
+        if (queue_.empty())
+        {
+            return {QueueStatus::kClosed, {}};
         }
 
         std::optional<T> item(
@@ -97,7 +118,32 @@ public:
 
         queue_.pop();
 
-        return item;
+        return {QueueStatus::kSuccess, std::move(item)};
+    }
+
+    /**
+     * @brief Closes the queue and wakes all waiting consumers.
+     *
+     * Existing elements remain available for retrieval. Repeated calls have
+     * no additional effect.
+     */
+    void close()
+    {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            closed_ = true;
+        }
+        not_empty_cv_.notify_all();
+    }
+
+    /**
+     * @brief Checks whether the queue has been closed.
+     * @return @c true if closed; otherwise @c false.
+     */
+    bool isClosed() const
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return closed_;
     }
 
     /**
@@ -126,6 +172,9 @@ private:
 
     /// Protects access to the queue.
     mutable std::mutex mutex_;
+
+    /// Rejects new elements and releases waiting consumers when set.
+    bool closed_{false};
 
     /// Wakes waiting consumers when an element is added.
     std::condition_variable_any not_empty_cv_;
