@@ -6,12 +6,31 @@ A collection of reusable C++ components, concurrency utilities, design patterns,
 
 The logging API is declared in [`include/logging/`](./include/logging/):
 
-- **`logging::LogLevel`** defines the ordered severity levels `kTrace`, `kDebug`, `kInfo`, `kWarning`, `kError`, and `kFatal`. `logging::logLevelToString` converts a level to its label.
-- **`logging::Logger`** is the abstract base class. It stores a minimum severity threshold, synchronizes output, and formats log entries with a timestamp, severity, and thread ID.
-- **`logging::ConsoleLogger`** is a process-wide singleton that writes accepted messages to standard output. `logging::ConsoleLogger::instance(level)` uses `level` only on its first call; later calls return the same logger and ignore the argument. The default threshold is `kInfo`.
-- **`logging::FileLogger`** writes accepted messages to a caller-supplied file or, by default, a timestamp-named file in the current working directory. Warning and more severe messages are flushed immediately; open and write failures are reported to standard error. Each instance has its own file and threshold.
+- **`systemcore::logging::Logger`** filters messages by a configurable minimum severity (default `kInfo`), creates a `LogRecord` with the current time and thread ID, and sends accepted records to each configured sink. Severity-specific helpers are available, and sink exceptions propagate to the caller.
+- **`systemcore::logging::ConsoleSink`** formats records and writes warning-level and more severe messages to standard error; other messages go to standard output.
+- **`systemcore::logging::FileSink`** appends formatted records to a file. Its `FlushPolicy` controls whether output is flushed manually, for warning-level and more severe records, or after every record.
+- **`systemcore::logging::TextFormatter`** produces readable log lines. **`systemcore::logging::JsonFormatter`** produces JSON records with escaped message and thread-ID fields. Both format timestamps in UTC using millisecond precision.
 
-Both concrete loggers omit messages below their threshold, which is fixed when each logger is constructed.
+Construct a logger with one or more sinks and a formatter, for example:
+
+```cpp
+#include "logging/logging.hpp"
+
+#include <memory>
+
+using namespace systemcore::logging;
+
+auto formatter = std::make_shared<TextFormatter>();
+auto sink = std::make_shared<ConsoleSink>(formatter);
+Logger logger({sink});
+logger.info("Application started");
+```
+
+Logger tests are in [`tests/logging/`](./tests/logging/). Run them with:
+
+```sh
+/opt/homebrew/bin/ctest --test-dir build -R 'LoggerTest|ConsoleSinkTest|FileSinkTest|FormatterTest' --output-on-failure
+```
 
 ## Scope timer
 
@@ -71,8 +90,7 @@ From the repository root, the following commands configure, build, and run all t
 The tests are in [`tests/benchmark/performance/`](./tests/benchmark/performance/), [`tests/logging/`](./tests/logging/), [`tests/containers/`](./tests/containers/), and [`tests/io/files/`](./tests/io/files/). To run only one suite, filter by suite name:
 
 ```sh
-/opt/homebrew/bin/ctest --test-dir build -R 'ConsoleLoggerTest' --output-on-failure
-/opt/homebrew/bin/ctest --test-dir build -R 'FileLoggerTest' --output-on-failure
+/opt/homebrew/bin/ctest --test-dir build -R 'LoggerTest|ConsoleSinkTest|FileSinkTest|FormatterTest' --output-on-failure
 /opt/homebrew/bin/ctest --test-dir build -R 'ScopeTimerTest' --output-on-failure
 /opt/homebrew/bin/ctest --test-dir build -R 'BinaryFileReaderTest' --output-on-failure
 ```

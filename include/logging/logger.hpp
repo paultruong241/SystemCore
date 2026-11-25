@@ -4,93 +4,124 @@
  *****************************************************************************/
 #pragma once
 
-#include "log_levels.hpp"
+#include "logging/log_level.hpp"
+#include "logging/log_sink.hpp"
 
-#include <mutex>
-#include <string>
+#include <atomic>
+#include <memory>
 #include <string_view>
+#include <vector>
 
-namespace logging
+namespace systemcore::logging
 {
 
-/**
- * @brief Base class for loggers.
- *
- * Stores the severity threshold and synchronization mutex shared by concrete
- * logger implementations, and provides helpers for formatting log entries.
- */
-class Logger
-{
-public:
     /**
-     * @brief Constructs a logger with a severity threshold.
-     * @param level Minimum severity accepted by the logger.
-     */
-    explicit Logger(const LogLevel level = LogLevel::kInfo);
-
-    /**
-     * @brief Destroys the logger.
-     */
-    virtual ~Logger() = default;
-
-    /// Copying a logger is disabled.
-    Logger(const Logger &) = delete;
-
-    /// Copy assignment for a logger is disabled.
-    Logger &operator=(const Logger &) = delete;
-
-    /**
-     * @brief Returns the logger's severity threshold.
+     * @brief Routes log messages to configured sinks after filtering by
+     *        severity.
      *
-     * The threshold is fixed when the logger is constructed.
-     * @return The configured severity level.
+     * Each accepted message is recorded with the current time and thread ID.
      */
-    LogLevel getLogLevel() const;
+    class Logger final
+    {
+    public:
+        /**
+         * @brief Constructs a logger with the specified sinks and severity
+         *        level.
+         * @param sinks Sinks that receive accepted log records.
+         * @param level Minimum severity level to write.
+         * @throws std::invalid_argument If @p sinks is empty or contains null.
+         */
+        explicit Logger(
+            std::vector<std::shared_ptr<ILogSink>> sinks,
+            const LogLevel level = LogLevel::kInfo);
 
-    /**
-     * @brief Writes a message according to the logger's severity threshold.
-     * @param level Severity of the message to write.
-     * @param msg Text of the message to write.
-     *
-     * Concrete implementations define the output destination and should omit
-     * messages less severe than the configured threshold.
-     */
-    virtual void log(const LogLevel level, const std::string_view msg) = 0;
+        /// Copy construction is disabled.
+        Logger(const Logger &) = delete;
 
-protected:
-    /**
-     * @brief Returns the mutex used to synchronize log output.
-     * @return A reference to the logger's mutex.
-     */
-    std::mutex &getMutex();
+        /// Copy assignment is disabled.
+        Logger &operator=(const Logger &) = delete;
 
-    /**
-     * @brief Formats the current time to whole-second precision.
-     * @return The timestamp formatted as @c YYYY-MM-DD HH:MM:SS.
-     */
-    std::string formatTimestamp() const;
+        /// Move construction is disabled.
+        Logger(Logger &&) = delete;
 
-    /**
-     * @brief Formats the calling thread's ID.
-     * @return The thread ID as a string.
-     */
-    std::string formatThreadId() const;
+        /// Move assignment is disabled.
+        Logger &operator=(Logger &&) = delete;
 
-    /**
-     * @brief Formats a log entry with its timestamp, severity, thread ID, and
-     * message.
-     * @param level Severity of the log entry.
-     * @param msg Message text.
-     * @return The formatted entry in the form @c [timestamp][level][thread-id] message.
-     */
-    std::string formatLogMessage(const LogLevel level, const std::string_view msg) const;
+        /**
+         * @brief Sets the minimum severity level written by the logger.
+         * @param level New minimum severity level.
+         */
+        void setLevel(LogLevel level);
 
-private:
-    /// Minimum severity level accepted by the logger.
-    const LogLevel log_level_{LogLevel::kInfo};
+        /**
+         * @brief Returns the current minimum severity level.
+         * @return The current severity threshold.
+         */
+        LogLevel level() const noexcept;
 
-    /// Synchronizes access to log output.
-    std::mutex log_mutex_{};
-};
+        /**
+         * @brief Writes a message if its severity meets the current threshold.
+         * @param level Severity of the message.
+         * @param message Message text.
+         *
+         * Exceptions thrown by a sink are propagated to the caller. If a sink
+         * throws, later sinks do not receive the record.
+         */
+        void log(LogLevel level, std::string_view message);
 
-} // namespace logging
+        /**
+         * @brief Writes a trace-level message.
+         * @param message Message text.
+         */
+        void trace(std::string_view message);
+
+        /**
+         * @brief Writes a debug-level message.
+         * @param message Message text.
+         */
+        void debug(std::string_view message);
+
+        /**
+         * @brief Writes an informational message.
+         * @param message Message text.
+         */
+        void info(std::string_view message);
+
+        /**
+         * @brief Writes a warning-level message.
+         * @param message Message text.
+         */
+        void warning(std::string_view message);
+
+        /**
+         * @brief Writes an error-level message.
+         * @param message Message text.
+         */
+        void error(std::string_view message);
+
+        /**
+         * @brief Writes a fatal-level message.
+         * @param message Message text.
+         */
+        void fatal(std::string_view message);
+
+        /**
+         * @brief Flushes each configured sink.
+         *
+         * Exceptions thrown by a sink are propagated to the caller.
+         */
+        void flush();
+
+    private:
+        /// Returns whether a message meets the current severity threshold.
+        bool shouldLog(LogLevel message_level) const noexcept;
+
+        /// Minimum severity level, which may be changed concurrently.
+        std::atomic<LogLevel> level_;
+
+        /// Sinks registered at construction; this list is not modified
+        /// afterward.
+        std::vector<std::shared_ptr<ILogSink>> sinks_;
+    };
+
+} // namespace systemcore::logging

@@ -2,51 +2,106 @@
  * @file logger.cpp
  * @brief Implements the Logger class.
  *****************************************************************************/
-
-#include "logger.hpp"
+#include "logging/logger.hpp"
 
 #include <chrono>
-#include <format>
-#include <sstream>
+#include <stdexcept>
 #include <thread>
+#include <utility>
 
-namespace logging
+namespace systemcore::logging
 {
 
-Logger::Logger(const LogLevel level)
-    : log_level_(level)
-{
-}
+    Logger::Logger(
+        std::vector<std::shared_ptr<ILogSink>> sinks,
+        const LogLevel level)
+        : level_(level),
+          sinks_(std::move(sinks))
+    {
+        if (sinks_.empty())
+        {
+            throw std::invalid_argument("Logger requires at least one sink");
+        }
+        for (const auto &sink : sinks_)
+        {
+            if (!sink)
+            {
+                throw std::invalid_argument("Logger sink list contains nullptr");
+            }
+        }
+    }
 
-LogLevel Logger::getLogLevel() const
-{
-    return log_level_;
-}
+    void Logger::setLevel(LogLevel level)
+    {
+        level_.store(level, std::memory_order_relaxed);
+    }
 
-std::mutex &Logger::getMutex()
-{
-    return log_mutex_;
-}
+    LogLevel Logger::level() const noexcept
+    {
+        return level_.load(std::memory_order_relaxed);
+    }
 
-std::string Logger::formatTimestamp() const
-{
-    const auto now = std::chrono::floor<std::chrono::seconds>(
-        std::chrono::system_clock::now());
+    bool Logger::shouldLog(LogLevel message_level) const noexcept
+    {
+        const auto threshold = level();
+        return message_level >= threshold;
+    }
 
-    return std::format("{:%Y-%m-%d %H:%M:%S}", now);
-}
+    void Logger::log(LogLevel message_level, std::string_view message)
+    {
+        if (!shouldLog(message_level))
+        {
+            return;
+        }
 
-std::string Logger::formatThreadId() const
-{
-    std::ostringstream thread_id;
-    thread_id << std::this_thread::get_id();
-    return thread_id.str();
-}
+        const LogRecord record{
+            .level = message_level,
+            .timestamp = std::chrono::system_clock::now(),
+            .thread_id = std::this_thread::get_id(),
+            .message = std::string(message)};
 
-std::string Logger::formatLogMessage(const LogLevel level, const std::string_view msg) const
-{
-    return std::format("[{}][{}][{}] {}", formatTimestamp(),
-                       logLevelToString(level), formatThreadId(), msg);
-}
+        for (const auto &sink : sinks_)
+        {
+            sink->write(record);
+        }
+    }
 
-} // namespace logging
+    void Logger::trace(std::string_view message)
+    {
+        log(LogLevel::kTrace, message);
+    }
+
+    void Logger::debug(std::string_view message)
+    {
+        log(LogLevel::kDebug, message);
+    }
+
+    void Logger::info(std::string_view message)
+    {
+        log(LogLevel::kInfo, message);
+    }
+
+    void Logger::warning(std::string_view message)
+    {
+        log(LogLevel::kWarning, message);
+    }
+
+    void Logger::error(std::string_view message)
+    {
+        log(LogLevel::kError, message);
+    }
+
+    void Logger::fatal(std::string_view message)
+    {
+        log(LogLevel::kFatal, message);
+    }
+
+    void Logger::flush()
+    {
+        for (const auto &sink : sinks_)
+        {
+            sink->flush();
+        }
+    }
+
+} // namespace systemcore::logging

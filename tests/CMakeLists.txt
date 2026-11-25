@@ -5,9 +5,11 @@ add_executable(system_core_tests
     containers/concurrent_bounded_queue_test.cpp
     containers/concurrent_circular_buffer_test.cpp
     containers/concurrent_queue_test.cpp
+    logging/console_sink_test.cpp
+    logging/file_sink_test.cpp
+    logging/formatter_test.cpp
+    logging/logger_test.cpp
     io/files/binary_file_reader_test.cpp
-    logging/console_logger_test.cpp
-    logging/file_logger_test.cpp
 )
 
 target_include_directories(system_core_tests
@@ -17,7 +19,7 @@ target_include_directories(system_core_tests
 
 target_link_libraries(system_core_tests
     PRIVATE
-        system_core
+        SystemCore::SystemCore
         GTest::gtest_main
 )
 

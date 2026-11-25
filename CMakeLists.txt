@@ -20,18 +20,22 @@ add_library(system_core
     src/benchmark/performance/scope_timer.cpp
     src/io/files/binary_file_reader.cpp
     src/io/files/file_reader.cpp
-    src/logging/console_logger.cpp
-    src/logging/file_logger.cpp
+    src/logging/formatters/json_formatter.cpp
+    src/logging/formatters/text_formatter.cpp
     src/logging/logger.cpp
+    src/logging/sinks/console_sink.cpp
+    src/logging/sinks/file_sink.cpp
 )
 
 target_include_directories(system_core
     PUBLIC
         ${PROJECT_SOURCE_DIR}/include
-    PRIVATE
         ${PROJECT_SOURCE_DIR}/include/logging
         ${PROJECT_SOURCE_DIR}/include/containers
 )
+
+# Build CMake Alias
+add_library(SystemCore::SystemCore ALIAS system_core)
 
 # Enable unit testing
 include(CTest)
