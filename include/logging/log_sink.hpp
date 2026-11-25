@@ -43,6 +43,9 @@ namespace systemcore::logging
         /**
          * @brief Writes a log record to the sink.
          * @param record Record to write.
+         *
+         * A logger may call this function concurrently. Implementations must
+         * synchronize access to mutable state when shared across threads.
          */
         virtual void write(const LogRecord &record) = 0;
 

@@ -5,6 +5,7 @@
 #include "logging/formatters/text_formatter.hpp"
 
 #include <chrono>
+#include <ctime>
 #include <iomanip>
 #include <sstream>
 

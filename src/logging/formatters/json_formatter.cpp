@@ -5,9 +5,11 @@
 #include "logging/formatters/json_formatter.hpp"
 
 #include <chrono>
+#include <ctime>
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <string_view>
 
 namespace systemcore::logging
 {

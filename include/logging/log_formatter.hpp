@@ -26,6 +26,9 @@ namespace systemcore::logging
          * @brief Formats a log record.
          * @param record Record to format.
          * @return The formatted log record.
+         *
+         * A formatter may be shared and called concurrently. Implementations must
+         * support concurrent calls or be externally synchronized.
          */
         virtual std::string format(const LogRecord &record) const = 0;
     };

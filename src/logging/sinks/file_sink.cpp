@@ -15,8 +15,7 @@ namespace systemcore::logging
         FlushPolicy flush_policy)
         : path_(std::move(path)),
           formatter_(std::move(formatter)),
-          flush_policy_(flush_policy),
-          stream_(path_, std::ios::out | std::ios::app)
+          flush_policy_(flush_policy)
     {
         if (path_.empty())
         {
@@ -26,6 +25,8 @@ namespace systemcore::logging
         {
             throw std::invalid_argument("FileSink requires a formatter");
         }
+
+        stream_.open(path_, std::ios::out | std::ios::app);
         if (!stream_.is_open())
         {
             throw std::ios_base::failure(
