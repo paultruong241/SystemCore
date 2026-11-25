@@ -2,9 +2,9 @@ find_package(GTest CONFIG REQUIRED)
 
 add_executable(system_core_tests
     benchmark/performance/scope_timer_test.cpp
-    containers/concurrent_bounded_queue_test.cpp
-    containers/concurrent_circular_buffer_test.cpp
-    containers/concurrent_queue_test.cpp
+    concurrency/bounded_queue_test.cpp
+    concurrency/circular_buffer_test.cpp
+    concurrency/queue_test.cpp
     logging/console_sink_test.cpp
     logging/file_sink_test.cpp
     logging/formatter_test.cpp

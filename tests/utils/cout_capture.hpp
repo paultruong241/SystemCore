@@ -1,6 +1,6 @@
 /*****************************************************************************
  * @file cout_capture.hpp
- * @brief Provides a standard-output capture utility for tests.
+ * @brief Provides a utility for capturing standard output in tests.
  *****************************************************************************/
 #pragma once
 

@@ -1,10 +1,10 @@
 /*****************************************************************************
  * @file text_formatter.hpp
- * @brief Defines the text formatter for log records.
+ * @brief Declares a formatter for text log records.
  *****************************************************************************/
 #pragma once
 
-#include "logging/log_formatter.hpp"
+#include "systemcore/logging/log_formatter.hpp"
 
 namespace systemcore::logging
 {

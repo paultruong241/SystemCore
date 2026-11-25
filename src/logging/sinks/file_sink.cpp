@@ -1,8 +1,8 @@
 /*****************************************************************************
  * @file file_sink.cpp
- * @brief Implements the file log sink.
+ * @brief Implements file output for log records.
  *****************************************************************************/
-#include "logging/sinks/file_sink.hpp"
+#include "systemcore/logging/sinks/file_sink.hpp"
 
 #include <stdexcept>
 #include <utility>

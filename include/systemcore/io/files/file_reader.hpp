@@ -1,6 +1,6 @@
 /*****************************************************************************
  * @file file_reader.hpp
- * @brief Declares the base FileReader class.
+ * @brief Declares the base class for input-file readers.
  *****************************************************************************/
 #pragma once
 
@@ -11,7 +11,7 @@
 #include <limits>
 #include <string>
 
-namespace io::files
+namespace systemcore::io::files
 {
 
 /**
@@ -60,4 +60,4 @@ protected:
     bool isStreamUsable() const;
 };
 
-} // namespace io::files
+} // namespace systemcore::io::files

@@ -1,10 +1,10 @@
 /*****************************************************************************
  * @file console_sink_test.cpp
- * @brief Tests console sink routing and output.
+ * @brief Tests console sink routing and output formatting.
  *****************************************************************************/
 
-#include "logging/formatters/text_formatter.hpp"
-#include "logging/sinks/console_sink.hpp"
+#include "systemcore/logging/formatters/text_formatter.hpp"
+#include "systemcore/logging/sinks/console_sink.hpp"
 
 #include <gtest/gtest.h>
 

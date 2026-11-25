@@ -1,11 +1,11 @@
 /*****************************************************************************
  * @file console_sink.hpp
- * @brief Declares the ConsoleSink class.
+ * @brief Declares a sink for formatted console output.
  *****************************************************************************/
 #pragma once
 
-#include "logging/log_formatter.hpp"
-#include "logging/log_sink.hpp"
+#include "systemcore/logging/log_formatter.hpp"
+#include "systemcore/logging/log_sink.hpp"
 
 #include <memory>
 

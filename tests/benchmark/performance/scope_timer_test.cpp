@@ -1,16 +1,16 @@
 /*****************************************************************************
  * @file scope_timer_test.cpp
- * @brief Tests ScopeTimer output.
+ * @brief Tests elapsed-time reporting by ScopeTimer.
  *****************************************************************************/
 
-#include "benchmark/performance/scope_timer.hpp"
+#include "systemcore/benchmark/performance/scope_timer.hpp"
 #include "utils/cout_capture.hpp"
 
 #include <gtest/gtest.h>
 
 #include <string>
 
-namespace benchmark::performance
+namespace systemcore::benchmark::performance
 {
 
 /**
@@ -28,4 +28,4 @@ TEST(ScopeTimerTest, ReportsElapsedTimeWhenDestroyed)
     EXPECT_TRUE(text.ends_with(" ms\n"));
 }
 
-} // namespace benchmark::performance
+} // namespace systemcore::benchmark::performance

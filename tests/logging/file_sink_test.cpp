@@ -1,10 +1,10 @@
 /*****************************************************************************
  * @file file_sink_test.cpp
- * @brief Tests file sink output and flush behavior.
+ * @brief Tests file sink output and flush policies.
  *****************************************************************************/
 
-#include "logging/formatters/text_formatter.hpp"
-#include "logging/sinks/file_sink.hpp"
+#include "systemcore/logging/formatters/text_formatter.hpp"
+#include "systemcore/logging/sinks/file_sink.hpp"
 
 #include <gtest/gtest.h>
 

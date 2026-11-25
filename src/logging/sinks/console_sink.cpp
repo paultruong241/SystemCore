@@ -1,8 +1,8 @@
 /*****************************************************************************
  * @file console_sink.cpp
- * @brief Implements the console log sink.
+ * @brief Implements console output for log records.
  *****************************************************************************/
-#include "logging/sinks/console_sink.hpp"
+#include "systemcore/logging/sinks/console_sink.hpp"
 
 #include <iostream>
 #include <stdexcept>

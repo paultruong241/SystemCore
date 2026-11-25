@@ -1,17 +1,17 @@
 /*****************************************************************************
  * @file binary_file_reader.hpp
- * @brief BinaryFileReader class declaration.
+ * @brief Declares a reader for binary files.
  *****************************************************************************/
 #pragma once
 
-#include "io/files/file_reader.hpp"
+#include "systemcore/io/files/file_reader.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
 
-namespace io::files
+namespace systemcore::io::files
 {
 
 /**
@@ -64,4 +64,4 @@ private:
     bool readBytes(std::vector<std::byte> &buffer, std::uintmax_t byte_count);
 };
 
-} // namespace io::files
+} // namespace systemcore::io::files

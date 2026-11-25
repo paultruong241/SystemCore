@@ -1,6 +1,6 @@
 /*****************************************************************************
- * @file concurrent_circular_buffer.hpp
- * @brief Declares the thread-safe ConcurrentCircularBuffer class.
+ * @file circular_buffer.hpp
+ * @brief Declares a thread-safe circular buffer that overwrites its oldest element when full.
  *****************************************************************************/
 #pragma once
 
@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-namespace containers
+namespace systemcore::concurrency
 {
 
 /**
@@ -25,7 +25,7 @@ namespace containers
  * @tparam T Type of elements stored in the buffer.
  */
 template <typename T>
-class ConcurrentCircularBuffer
+class CircularBuffer
 {
 public:
     /// Default capacity used when no capacity is specified.
@@ -36,7 +36,7 @@ public:
      * @param capacity Maximum number of elements the buffer can store.
      * @throws std::invalid_argument If @p capacity is zero.
      */
-    explicit ConcurrentCircularBuffer(
+    explicit CircularBuffer(
         const std::size_t capacity = kDefaultCapacity)
         : capacity_(validateCapacity(capacity)),
           buffer_(capacity_)
@@ -156,7 +156,7 @@ private:
         if (capacity == 0)
         {
             throw std::invalid_argument(
-                "ConcurrentCircularBuffer capacity must be greater than zero");
+                "CircularBuffer capacity must be greater than zero");
         }
 
         return capacity;
@@ -210,4 +210,4 @@ private:
     mutable std::mutex mutex_;
 };
 
-} // namespace containers
+} // namespace systemcore::concurrency

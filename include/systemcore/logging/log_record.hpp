@@ -1,6 +1,6 @@
 /*****************************************************************************
  * @file log_record.hpp
- * @brief Defines the data structure for a log record.
+ * @brief Defines the data structure for a log event.
  *****************************************************************************/
 #pragma once
 

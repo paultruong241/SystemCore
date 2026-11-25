@@ -1,6 +1,6 @@
 ###############################################################################
 # @file CMakeLists.txt
-# @brief Defines the SystemCore build targets and test integration.
+# @brief Configures the SystemCore library and test targets.
 ###############################################################################
 
 cmake_minimum_required(VERSION 3.20)
@@ -30,8 +30,6 @@ add_library(system_core
 target_include_directories(system_core
     PUBLIC
         ${PROJECT_SOURCE_DIR}/include
-        ${PROJECT_SOURCE_DIR}/include/logging
-        ${PROJECT_SOURCE_DIR}/include/containers
 )
 
 # Build CMake Alias

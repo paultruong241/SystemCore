@@ -1,13 +1,13 @@
 /*****************************************************************************
  * @file scope_timer.hpp
- * @brief Declares the ScopeTimer class.
+ * @brief Declares the scope-based timer.
  *****************************************************************************/
 #pragma once
 
 #include <chrono>
 #include <string_view>
 
-namespace benchmark::performance
+namespace systemcore::benchmark::performance
 {
 
 /**
@@ -45,4 +45,4 @@ private:
     std::chrono::time_point<std::chrono::steady_clock> m_start;
 };
 
-} // namespace benchmark::performance
+} // namespace systemcore::benchmark::performance

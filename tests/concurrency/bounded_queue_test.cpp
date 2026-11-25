@@ -1,9 +1,9 @@
 /*****************************************************************************
- * @file concurrent_bounded_queue_test.cpp
- * @brief Tests ConcurrentBoundedQueue stop-aware insertion.
+ * @file bounded_queue_test.cpp
+ * @brief Tests bounded queue capacity, blocking operations, and cancellation.
  *****************************************************************************/
 
-#include "containers/concurrent_bounded_queue.hpp"
+#include "systemcore/concurrency/bounded_queue.hpp"
 
 #include <gtest/gtest.h>
 
@@ -15,12 +15,12 @@
 #include <thread>
 #include <vector>
 
-namespace containers
+namespace systemcore::concurrency
 {
 
-TEST(ConcurrentBoundedQueueTest, WaitPushInsertsWhenCapacityIsAvailable)
+TEST(BoundedQueueTest, WaitPushInsertsWhenCapacityIsAvailable)
 {
-    ConcurrentBoundedQueue<int> queue(1);
+    BoundedQueue<int> queue(1);
 
     EXPECT_TRUE(queue.waitPush(42, std::stop_token{}));
 
@@ -29,9 +29,9 @@ TEST(ConcurrentBoundedQueueTest, WaitPushInsertsWhenCapacityIsAvailable)
     EXPECT_EQ(*value, 42);
 }
 
-TEST(ConcurrentBoundedQueueTest, WaitPushReturnsFalseWhenCancelledAndFull)
+TEST(BoundedQueueTest, WaitPushReturnsFalseWhenCancelledAndFull)
 {
-    ConcurrentBoundedQueue<int> queue(1);
+    BoundedQueue<int> queue(1);
     ASSERT_TRUE(queue.tryPush(42));
 
     std::stop_source stop_source;
@@ -44,9 +44,9 @@ TEST(ConcurrentBoundedQueueTest, WaitPushReturnsFalseWhenCancelledAndFull)
     EXPECT_EQ(*value, 42);
 }
 
-TEST(ConcurrentBoundedQueueTest, TryPushAndTryPopPreserveFifoAndCapacity)
+TEST(BoundedQueueTest, TryPushAndTryPopPreserveFifoAndCapacity)
 {
-    ConcurrentBoundedQueue<std::string> queue(2);
+    BoundedQueue<std::string> queue(2);
 
     EXPECT_EQ(queue.capacity(), 2);
     EXPECT_TRUE(queue.isEmpty());
@@ -70,16 +70,16 @@ TEST(ConcurrentBoundedQueueTest, TryPushAndTryPopPreserveFifoAndCapacity)
     EXPECT_TRUE(queue.isEmpty());
 }
 
-TEST(ConcurrentBoundedQueueTest, WaitPopReturnsEmptyWhenCancelled)
+TEST(BoundedQueueTest, WaitPopReturnsEmptyWhenCancelled)
 {
-    ConcurrentBoundedQueue<int> queue(1);
+    BoundedQueue<int> queue(1);
     std::stop_source stop_source;
     stop_source.request_stop();
 
     EXPECT_FALSE(queue.waitPop(stop_source.get_token()).has_value());
 }
 
-TEST(ConcurrentBoundedQueueTest, HandlesConcurrentProducersAndConsumers)
+TEST(BoundedQueueTest, HandlesConcurrentProducersAndConsumers)
 {
     constexpr std::size_t producer_count = 2;
     constexpr std::size_t consumer_count = 2;
@@ -88,7 +88,7 @@ TEST(ConcurrentBoundedQueueTest, HandlesConcurrentProducersAndConsumers)
         producer_count * items_per_producer / consumer_count;
     constexpr std::size_t total_items = producer_count * items_per_producer;
 
-    ConcurrentBoundedQueue<int> queue(8);
+    BoundedQueue<int> queue(8);
     std::vector<std::vector<int>> consumed(consumer_count);
     std::vector<std::thread> consumers;
 
@@ -143,4 +143,4 @@ TEST(ConcurrentBoundedQueueTest, HandlesConcurrentProducersAndConsumers)
     EXPECT_EQ(actual_values, expected_values);
 }
 
-} // namespace containers
+} // namespace systemcore::concurrency

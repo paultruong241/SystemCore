@@ -1,15 +1,15 @@
 /*****************************************************************************
  * @file logging.hpp
- * @brief Includes the public logging interfaces.
+ * @brief Includes the public logging headers.
  *****************************************************************************/
 #pragma once
 
-#include "logging/log_level.hpp"
-#include "logging/log_record.hpp"
-#include "logging/log_formatter.hpp"
-#include "logging/log_sink.hpp"
-#include "logging/logger.hpp"
-#include "logging/formatters/json_formatter.hpp"
-#include "logging/formatters/text_formatter.hpp"
-#include "logging/sinks/console_sink.hpp"
-#include "logging/sinks/file_sink.hpp"
+#include "systemcore/logging/log_level.hpp"
+#include "systemcore/logging/log_record.hpp"
+#include "systemcore/logging/log_formatter.hpp"
+#include "systemcore/logging/log_sink.hpp"
+#include "systemcore/logging/logger.hpp"
+#include "systemcore/logging/formatters/json_formatter.hpp"
+#include "systemcore/logging/formatters/text_formatter.hpp"
+#include "systemcore/logging/sinks/console_sink.hpp"
+#include "systemcore/logging/sinks/file_sink.hpp"

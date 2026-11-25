@@ -1,9 +1,9 @@
 /*****************************************************************************
  * @file logger_test.cpp
- * @brief Tests logger filtering and sink dispatch.
+ * @brief Tests logger filtering, sink dispatch, and exception propagation.
  *****************************************************************************/
 
-#include "logging/logger.hpp"
+#include "systemcore/logging/logger.hpp"
 
 #include <gtest/gtest.h>
 

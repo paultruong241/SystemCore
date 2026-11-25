@@ -1,8 +1,8 @@
 /*****************************************************************************
  * @file logger.cpp
- * @brief Implements the Logger class.
+ * @brief Implements log filtering and sink dispatch.
  *****************************************************************************/
-#include "logging/logger.hpp"
+#include "systemcore/logging/logger.hpp"
 
 #include <chrono>
 #include <stdexcept>

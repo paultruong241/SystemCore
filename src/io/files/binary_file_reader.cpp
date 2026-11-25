@@ -1,15 +1,15 @@
 /*****************************************************************************
  * @file binary_file_reader.cpp
- * @brief Implements BinaryFileReader.
+ * @brief Implements binary file reading.
  *****************************************************************************/
 
-#include "io/files/binary_file_reader.hpp"
+#include "systemcore/io/files/binary_file_reader.hpp"
 
 #include <algorithm>
 #include <fstream>
 #include <iostream>
 
-namespace io::files
+namespace systemcore::io::files
 {
 
 BinaryFileReader::BinaryFileReader(const std::string &file_path) :
@@ -108,4 +108,4 @@ bool BinaryFileReader::readBytes(std::vector<std::byte> &buffer,
     return true;
 }
 
-} // namespace io::files
+} // namespace systemcore::io::files

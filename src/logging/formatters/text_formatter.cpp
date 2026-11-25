@@ -1,8 +1,8 @@
 /*****************************************************************************
  * @file text_formatter.cpp
- * @brief Implements the text log formatter.
+ * @brief Implements text formatting for log records.
  *****************************************************************************/
-#include "logging/formatters/text_formatter.hpp"
+#include "systemcore/logging/formatters/text_formatter.hpp"
 
 #include <chrono>
 #include <ctime>

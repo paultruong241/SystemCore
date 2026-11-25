@@ -1,6 +1,6 @@
 /*****************************************************************************
  * @file log_level.hpp
- * @brief Defines the logging severity levels.
+ * @brief Defines the severity levels used by the logging API.
  *****************************************************************************/
 #pragma once
 

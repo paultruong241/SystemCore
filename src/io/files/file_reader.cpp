@@ -1,11 +1,11 @@
 /*****************************************************************************
  * @file file_reader.cpp
- * @brief Implements the FileReader constructor.
+ * @brief Implements input-file opening and metadata capture.
  *****************************************************************************/
 
-#include "io/files/file_reader.hpp"
+#include "systemcore/io/files/file_reader.hpp"
 
-namespace io::files
+namespace systemcore::io::files
 {
 
 FileReader::FileReader(const std::string &file_path,
@@ -21,4 +21,4 @@ bool FileReader::isStreamUsable() const
     return file_stream_.is_open() && !file_stream_.bad();
 }
 
-} // namespace io::files
+} // namespace systemcore::io::files

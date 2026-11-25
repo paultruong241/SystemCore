@@ -1,8 +1,8 @@
 /*****************************************************************************
  * @file json_formatter.cpp
- * @brief Implements the JSON log formatter.
+ * @brief Implements JSON formatting for log records.
  *****************************************************************************/
-#include "logging/formatters/json_formatter.hpp"
+#include "systemcore/logging/formatters/json_formatter.hpp"
 
 #include <chrono>
 #include <ctime>

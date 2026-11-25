@@ -1,6 +1,6 @@
 /*****************************************************************************
- * @file concurrent_queue.hpp
- * @brief Declares the unbounded ConcurrentQueue class.
+ * @file queue.hpp
+ * @brief Declares an unbounded, thread-safe FIFO queue.
  *****************************************************************************/
 #pragma once
 
@@ -12,7 +12,7 @@
 #include <stop_token>
 #include <utility>
 
-namespace containers
+namespace systemcore::concurrency
 {
 
 /**
@@ -24,7 +24,7 @@ namespace containers
  * @tparam T Type of elements stored in the queue.
  */
 template <typename T>
-class ConcurrentQueue
+class Queue
 {
 public:
     /**
@@ -131,4 +131,4 @@ private:
     std::condition_variable_any not_empty_cv_;
 };
 
-} // namespace containers
+} // namespace systemcore::concurrency

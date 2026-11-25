@@ -1,6 +1,6 @@
 /*****************************************************************************
- * @file concurrent_bounded_queue.hpp
- * @brief Declares the ConcurrentBoundedQueue class.
+ * @file bounded_queue.hpp
+ * @brief Declares a fixed-capacity, thread-safe FIFO queue.
  *****************************************************************************/
 #pragma once
 
@@ -13,7 +13,7 @@
 #include <stop_token>
 #include <utility>
 
-namespace containers
+namespace systemcore::concurrency
 {
 
 /**
@@ -32,7 +32,7 @@ namespace containers
  * @tparam T Type of elements stored in the queue.
  */
 template <typename T>
-class ConcurrentBoundedQueue
+class BoundedQueue
 {
 public:
     /// Default capacity used when no capacity is specified.
@@ -43,7 +43,7 @@ public:
      * @param capacity Maximum number of elements the queue can store.
      * @throws std::invalid_argument If @p capacity is zero.
      */
-    explicit ConcurrentBoundedQueue(const std::size_t capacity = kDefaultCapacity)
+    explicit BoundedQueue(const std::size_t capacity = kDefaultCapacity)
         : capacity_(validateCapacity(capacity))
     {
     }
@@ -251,7 +251,7 @@ private:
         if (capacity == 0)
         {
             throw std::invalid_argument(
-                "ConcurrentBoundedQueue capacity must be greater than zero");
+                "BoundedQueue capacity must be greater than zero");
         }
 
         return capacity;
@@ -273,4 +273,4 @@ private:
     std::condition_variable_any not_full_cv_;
 };
 
-} // namespace containers
+} // namespace systemcore::concurrency

@@ -1,9 +1,9 @@
 /*****************************************************************************
  * @file binary_file_reader_test.cpp
- * @brief Tests reading binary files with BinaryFileReader.
+ * @brief Tests binary file reading and retry behavior.
  *****************************************************************************/
 
-#include "io/files/binary_file_reader.hpp"
+#include "systemcore/io/files/binary_file_reader.hpp"
 
 #include <gtest/gtest.h>
 
@@ -16,7 +16,7 @@
 #include <system_error>
 #include <vector>
 
-namespace io::files
+namespace systemcore::io::files
 {
 
 /**
@@ -124,4 +124,4 @@ TEST(BinaryFileReaderTest, FailedReadCanBeRetried)
     EXPECT_FALSE(error) << error.message();
 }
 
-} // namespace io::files
+} // namespace systemcore::io::files

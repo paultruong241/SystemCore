@@ -1,6 +1,6 @@
 /*****************************************************************************
  * @file log_sink.hpp
- * @brief Defines the interface for writing log records.
+ * @brief Declares the interface for log record sinks.
  *****************************************************************************/
 #pragma once
 

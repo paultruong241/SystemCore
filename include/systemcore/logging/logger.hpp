@@ -1,11 +1,11 @@
 /*****************************************************************************
  * @file logger.hpp
- * @brief Declares the Logger class.
+ * @brief Declares a logger that filters and dispatches log records.
  *****************************************************************************/
 #pragma once
 
-#include "logging/log_level.hpp"
-#include "logging/log_sink.hpp"
+#include "systemcore/logging/log_level.hpp"
+#include "systemcore/logging/log_sink.hpp"
 
 #include <atomic>
 #include <memory>

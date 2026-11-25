@@ -1,10 +1,10 @@
 /*****************************************************************************
  * @file formatter_test.cpp
- * @brief Tests text and JSON log formatting.
+ * @brief Tests text and JSON formatting of log records.
  *****************************************************************************/
 
-#include "logging/formatters/json_formatter.hpp"
-#include "logging/formatters/text_formatter.hpp"
+#include "systemcore/logging/formatters/json_formatter.hpp"
+#include "systemcore/logging/formatters/text_formatter.hpp"
 
 #include <gtest/gtest.h>
 

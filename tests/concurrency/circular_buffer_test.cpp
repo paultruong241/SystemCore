@@ -1,9 +1,9 @@
 /*****************************************************************************
- * @file concurrent_circular_buffer_test.cpp
- * @brief Tests ConcurrentCircularBuffer ordering and overwrite behavior.
+ * @file circular_buffer_test.cpp
+ * @brief Tests circular buffer ordering, overwriting, and concurrent access.
  *****************************************************************************/
 
-#include "containers/concurrent_circular_buffer.hpp"
+#include "systemcore/concurrency/circular_buffer.hpp"
 
 #include <gtest/gtest.h>
 
@@ -14,7 +14,7 @@
 #include <thread>
 #include <vector>
 
-namespace containers
+namespace systemcore::concurrency
 {
 
 namespace
@@ -76,9 +76,9 @@ bool ThrowingValue::throw_on_move{false};
 
 } // namespace
 
-TEST(ConcurrentCircularBufferTest, OverwritesOldestElementWhenFull)
+TEST(CircularBufferTest, OverwritesOldestElementWhenFull)
 {
-    ConcurrentCircularBuffer<int> buffer(3);
+    CircularBuffer<int> buffer(3);
 
     buffer.pushOverwrite(1);
     buffer.pushOverwrite(2);
@@ -95,9 +95,9 @@ TEST(ConcurrentCircularBufferTest, OverwritesOldestElementWhenFull)
     EXPECT_TRUE(buffer.isEmpty());
 }
 
-TEST(ConcurrentCircularBufferTest, WrapsCorrectlyAfterTryPop)
+TEST(CircularBufferTest, WrapsCorrectlyAfterTryPop)
 {
-    ConcurrentCircularBuffer<int> buffer(3);
+    CircularBuffer<int> buffer(3);
     buffer.pushOverwrite(1);
     buffer.pushOverwrite(2);
     buffer.pushOverwrite(3);
@@ -110,9 +110,9 @@ TEST(ConcurrentCircularBufferTest, WrapsCorrectlyAfterTryPop)
     EXPECT_EQ(buffer.tryPop(), 4);
 }
 
-TEST(ConcurrentCircularBufferTest, SupportsMoveOnlyElements)
+TEST(CircularBufferTest, SupportsMoveOnlyElements)
 {
-    ConcurrentCircularBuffer<std::unique_ptr<int>> buffer(1);
+    CircularBuffer<std::unique_ptr<int>> buffer(1);
     auto first = std::make_unique<int>(1);
     buffer.pushOverwrite(std::move(first));
     ASSERT_FALSE(first);
@@ -127,9 +127,9 @@ TEST(ConcurrentCircularBufferTest, SupportsMoveOnlyElements)
     EXPECT_EQ(**value, 2);
 }
 
-TEST(ConcurrentCircularBufferTest, CopiesLvalueElements)
+TEST(CircularBufferTest, CopiesLvalueElements)
 {
-    ConcurrentCircularBuffer<int> buffer(1);
+    CircularBuffer<int> buffer(1);
     int item = 42;
 
     buffer.pushOverwrite(item);
@@ -138,9 +138,9 @@ TEST(ConcurrentCircularBufferTest, CopiesLvalueElements)
     EXPECT_EQ(buffer.tryPop(), 42);
 }
 
-TEST(ConcurrentCircularBufferTest, ResetEmptiesBufferAndAllowsReuse)
+TEST(CircularBufferTest, ResetEmptiesBufferAndAllowsReuse)
 {
-    ConcurrentCircularBuffer<int> buffer(2);
+    CircularBuffer<int> buffer(2);
     buffer.pushOverwrite(1);
     buffer.pushOverwrite(2);
 
@@ -152,24 +152,24 @@ TEST(ConcurrentCircularBufferTest, ResetEmptiesBufferAndAllowsReuse)
     EXPECT_EQ(buffer.tryPop(), 3);
 }
 
-TEST(ConcurrentCircularBufferTest, RejectsZeroCapacity)
+TEST(CircularBufferTest, RejectsZeroCapacity)
 {
-    EXPECT_THROW(ConcurrentCircularBuffer<int> buffer(0), std::invalid_argument);
+    EXPECT_THROW(CircularBuffer<int> buffer(0), std::invalid_argument);
 }
 
-TEST(ConcurrentCircularBufferTest, UsesDefaultCapacity)
+TEST(CircularBufferTest, UsesDefaultCapacity)
 {
-    ConcurrentCircularBuffer<int> buffer;
+    CircularBuffer<int> buffer;
 
-    EXPECT_EQ(buffer.capacity(), ConcurrentCircularBuffer<int>::kDefaultCapacity);
+    EXPECT_EQ(buffer.capacity(), CircularBuffer<int>::kDefaultCapacity);
 }
 
-TEST(ConcurrentCircularBufferTest, SupportsConcurrentWriters)
+TEST(CircularBufferTest, SupportsConcurrentWriters)
 {
     constexpr std::size_t writer_count = 4;
     constexpr std::size_t items_per_writer = 100;
     constexpr std::size_t capacity = 32;
-    ConcurrentCircularBuffer<int> buffer(capacity);
+    CircularBuffer<int> buffer(capacity);
     std::vector<std::thread> writers;
 
     for (std::size_t writer = 0; writer < writer_count; ++writer)
@@ -209,9 +209,9 @@ TEST(ConcurrentCircularBufferTest, SupportsConcurrentWriters)
     EXPECT_TRUE(buffer.isEmpty());
 }
 
-TEST(ConcurrentCircularBufferTest, PreservesStateWhenElementAssignmentThrows)
+TEST(CircularBufferTest, PreservesStateWhenElementAssignmentThrows)
 {
-    ConcurrentCircularBuffer<ThrowingValue> buffer(1);
+    CircularBuffer<ThrowingValue> buffer(1);
     buffer.pushOverwrite(ThrowingValue{1});
     const ThrowingValue replacement{2};
 
@@ -226,9 +226,9 @@ TEST(ConcurrentCircularBufferTest, PreservesStateWhenElementAssignmentThrows)
     EXPECT_TRUE(buffer.isEmpty());
 }
 
-TEST(ConcurrentCircularBufferTest, PreservesStateWhenElementMoveThrows)
+TEST(CircularBufferTest, PreservesStateWhenElementMoveThrows)
 {
-    ConcurrentCircularBuffer<ThrowingValue> buffer(1);
+    CircularBuffer<ThrowingValue> buffer(1);
     buffer.pushOverwrite(ThrowingValue{7});
 
     ThrowingValue::throw_on_move = true;
@@ -242,7 +242,7 @@ TEST(ConcurrentCircularBufferTest, PreservesStateWhenElementMoveThrows)
     EXPECT_TRUE(buffer.isEmpty());
 }
 
-TEST(ConcurrentCircularBufferTest, SupportsConcurrentProducersAndConsumers)
+TEST(CircularBufferTest, SupportsConcurrentProducersAndConsumers)
 {
     constexpr std::size_t producer_count = 2;
     constexpr std::size_t consumer_count = 2;
@@ -250,7 +250,7 @@ TEST(ConcurrentCircularBufferTest, SupportsConcurrentProducersAndConsumers)
     constexpr std::size_t capacity = 64;
     constexpr std::size_t total_items = producer_count * items_per_producer;
 
-    ConcurrentCircularBuffer<int> buffer(capacity);
+    CircularBuffer<int> buffer(capacity);
     std::atomic<std::size_t> completed_producers{0};
     std::vector<std::vector<int>> consumed(consumer_count);
     std::vector<std::thread> consumers;
@@ -314,4 +314,4 @@ TEST(ConcurrentCircularBufferTest, SupportsConcurrentProducersAndConsumers)
     EXPECT_TRUE(buffer.isEmpty());
 }
 
-} // namespace containers
+} // namespace systemcore::concurrency

@@ -1,10 +1,10 @@
 /*****************************************************************************
  * @file json_formatter.hpp
- * @brief Defines the JSON formatter for log records.
+ * @brief Declares a formatter for JSON log records.
  *****************************************************************************/
 #pragma once
 
-#include "logging/log_formatter.hpp"
+#include "systemcore/logging/log_formatter.hpp"
 
 namespace systemcore::logging
 {

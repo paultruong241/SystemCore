@@ -1,14 +1,14 @@
 /*****************************************************************************
  * @file scope_timer.cpp
- * @brief Implements the ScopeTimer class.
+ * @brief Implements scope timing and reports elapsed time on destruction.
  *****************************************************************************/
 
-#include "benchmark/performance/scope_timer.hpp"
+#include "systemcore/benchmark/performance/scope_timer.hpp"
 
 #include <chrono>
 #include <iostream>
 
-namespace benchmark::performance
+namespace systemcore::benchmark::performance
 {
 
 ScopeTimer::ScopeTimer(const std::string_view name)
@@ -24,4 +24,4 @@ ScopeTimer::~ScopeTimer()
     std::cout << "[Timer] " << m_name << ": " << duration << " ms\n";
 }
 
-} // namespace benchmark::performance
+} // namespace systemcore::benchmark::performance

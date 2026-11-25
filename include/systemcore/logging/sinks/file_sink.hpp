@@ -1,11 +1,11 @@
 /*****************************************************************************
  * @file file_sink.hpp
- * @brief Declares the FileSink class and its flush policies.
+ * @brief Declares a sink for formatted file output and its flush policies.
  *****************************************************************************/
 #pragma once
 
-#include "logging/log_formatter.hpp"
-#include "logging/log_sink.hpp"
+#include "systemcore/logging/log_formatter.hpp"
+#include "systemcore/logging/log_sink.hpp"
 
 #include <filesystem>
 #include <fstream>

@@ -1,9 +1,9 @@
 /*****************************************************************************
- * @file concurrent_queue_test.cpp
- * @brief Tests ConcurrentQueue insertion and retrieval.
+ * @file queue_test.cpp
+ * @brief Tests queue insertion, retrieval, cancellation, and concurrent access.
  *****************************************************************************/
 
-#include "containers/concurrent_queue.hpp"
+#include "systemcore/concurrency/queue.hpp"
 
 #include <gtest/gtest.h>
 
@@ -16,12 +16,12 @@
 #include <thread>
 #include <vector>
 
-namespace containers
+namespace systemcore::concurrency
 {
 
-TEST(ConcurrentQueueTest, PushSupportsCopiesMovesAndFifoRetrieval)
+TEST(QueueTest, PushSupportsCopiesMovesAndFifoRetrieval)
 {
-    ConcurrentQueue<std::string> queue;
+    Queue<std::string> queue;
     const std::string first = "first";
     std::string second = "second";
 
@@ -40,9 +40,9 @@ TEST(ConcurrentQueueTest, PushSupportsCopiesMovesAndFifoRetrieval)
     EXPECT_TRUE(queue.isEmpty());
 }
 
-TEST(ConcurrentQueueTest, SupportsMoveOnlyValues)
+TEST(QueueTest, SupportsMoveOnlyValues)
 {
-    ConcurrentQueue<std::unique_ptr<int>> queue;
+    Queue<std::unique_ptr<int>> queue;
     queue.push(std::make_unique<int>(42));
 
     auto value = queue.tryPop();
@@ -51,16 +51,16 @@ TEST(ConcurrentQueueTest, SupportsMoveOnlyValues)
     EXPECT_EQ(**value, 42);
 }
 
-TEST(ConcurrentQueueTest, WaitPopReturnsEmptyWhenCancelled)
+TEST(QueueTest, WaitPopReturnsEmptyWhenCancelled)
 {
-    ConcurrentQueue<int> queue;
+    Queue<int> queue;
     std::stop_source stop_source;
     stop_source.request_stop();
 
     EXPECT_FALSE(queue.waitPop(stop_source.get_token()).has_value());
 }
 
-TEST(ConcurrentQueueTest, HandlesConcurrentProducersAndConsumers)
+TEST(QueueTest, HandlesConcurrentProducersAndConsumers)
 {
     constexpr std::size_t producer_count = 2;
     constexpr std::size_t consumer_count = 2;
@@ -69,7 +69,7 @@ TEST(ConcurrentQueueTest, HandlesConcurrentProducersAndConsumers)
         producer_count * items_per_producer / consumer_count;
     constexpr std::size_t total_items = producer_count * items_per_producer;
 
-    ConcurrentQueue<int> queue;
+    Queue<int> queue;
     std::vector<std::vector<int>> consumed(consumer_count);
     std::vector<std::thread> consumers;
 
@@ -123,4 +123,4 @@ TEST(ConcurrentQueueTest, HandlesConcurrentProducersAndConsumers)
     EXPECT_EQ(actual_values, expected_values);
 }
 
-} // namespace containers
+} // namespace systemcore::concurrency

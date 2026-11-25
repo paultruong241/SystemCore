@@ -1,6 +1,6 @@
 /*****************************************************************************
  * @file log_formatter.hpp
- * @brief Defines the interface for formatting log records.
+ * @brief Declares the interface for formatting log records.
  *****************************************************************************/
 #pragma once
 
