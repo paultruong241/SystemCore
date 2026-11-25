@@ -19,7 +19,7 @@ target_include_directories(system_core_tests
 
 target_link_libraries(system_core_tests
     PRIVATE
-        SystemCore::SystemCore
+        SystemCore::systemcore
         GTest::gtest_main
 )
 

@@ -10,7 +10,7 @@
                 "${workspaceFolder}",
                 "-B",
                 "${workspaceFolder}/build",
-                "-DBUILD_TESTING=ON"
+                "-DSYSTEMCORE_BUILD_TESTS=ON"
             ],
             "problemMatcher": []
         },

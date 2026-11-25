@@ -69,7 +69,7 @@ Concurrency tests are in [`tests/concurrency/`](./tests/concurrency/). Run an in
 
 ## Build and test prerequisites
 
-The build requires CMake and GoogleTest. The project uses GoogleTest for unit tests and CTest to discover and run them. The VS Code tasks in [`.vscode/tasks.json`](./.vscode/tasks.json) currently use Homebrew's Apple Silicon paths (`/opt/homebrew/bin`).
+The build requires CMake 3.25 or newer. GoogleTest is required when `SYSTEMCORE_BUILD_TESTS` is enabled. The project uses GoogleTest for unit tests and CTest to discover and run them. The VS Code tasks in [`.vscode/tasks.json`](./.vscode/tasks.json) currently use Homebrew's Apple Silicon paths (`/opt/homebrew/bin`).
 
 ## Run the VS Code tasks
 
@@ -86,7 +86,7 @@ The tasks use `/opt/homebrew/bin/cmake` and `/opt/homebrew/bin/ctest`. If those 
 From the repository root, the following commands configure, build, and run all tests:
 
 ```sh
-/opt/homebrew/bin/cmake -S . -B build -DBUILD_TESTING=ON
+/opt/homebrew/bin/cmake -S . -B build -DSYSTEMCORE_BUILD_TESTS=ON
 /opt/homebrew/bin/cmake --build build
 /opt/homebrew/bin/ctest --test-dir build --output-on-failure
 ```
