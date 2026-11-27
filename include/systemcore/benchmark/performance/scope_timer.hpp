@@ -39,10 +39,10 @@ public:
 
 private:
     /// Label printed with the elapsed duration.
-    std::string_view m_name;
+    std::string_view name_;
 
     /// Time at which measurement began.
-    std::chrono::time_point<std::chrono::steady_clock> m_start;
+    std::chrono::time_point<std::chrono::steady_clock> start_;
 };
 
 } // namespace systemcore::benchmark::performance

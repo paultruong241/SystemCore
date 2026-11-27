@@ -53,20 +53,20 @@ Reads use the size captured at construction. Appended data is ignored, and trunc
 
 The concurrency API includes thread-safe queues and a circular buffer:
 
-- [`systemcore::concurrency::Queue<T>`](./include/systemcore/concurrency/queue.hpp) is unbounded. `push()` accepts copies and moves and returns a `QueueStatus`; `tryPop()` and `waitPop(stop)` return a `QueueResult<T>` containing the status and, on success, the item.
-- [`systemcore::concurrency::BoundedQueue<T>`](./include/systemcore/concurrency/bounded_queue.hpp) has a fixed capacity (default `100`). `tryPush()` returns `kFull` when full; `waitPush(item, stop)` returns `kStopped` if cancelled. Both report `kClosed` after closure; pop operations return a `QueueResult<T>`.
-- [`systemcore::concurrency::CircularBuffer<T>`](./include/systemcore/concurrency/circular_buffer.hpp) has a fixed capacity (default `100`) and overwrites the oldest element when a new element arrives while full. `pushOverwrite()` returns a `QueueStatus`; `tryPop()` returns a `QueueResult<T>`. `clear()` discards all stored elements.
+- [`systemcore::concurrency::containers::ConcurrentQueue<T>`](./include/systemcore/concurrency/containers/concurrent_queue.hpp) is unbounded. `push()` accepts copies and moves and returns a `ContainerStatus`; `tryPop()` and `waitPop(stop)` return a `QueueResult<T>` containing the status and, on success, the item.
+- [`systemcore::concurrency::containers::ConcurrentBoundedQueue<T>`](./include/systemcore/concurrency/containers/concurrent_bounded_queue.hpp) has a fixed capacity (default `100`). `tryPush()` returns `kFull` when full; `waitPush(item, stop)` returns `kStopped` if cancelled. Both report `kClosed` after closure; pop operations return a `QueueResult<T>`.
+- [`systemcore::concurrency::containers::ConcurrentCircularBuffer<T>`](./include/systemcore/concurrency/containers/concurrent_circular_buffer.hpp) has a fixed capacity (default `100`) and overwrites the oldest element when a new element arrives while full. `pushOverwrite()` returns a `ContainerStatus`; `tryPop()` returns a `QueueResult<T>`. `clear()` discards all stored elements.
 
-`QueueStatus` distinguishes success, an open-and-empty non-blocking pop (`kEmpty`), closure (`kClosed`), per-operation cancellation (`kStopped`), and a full bounded queue (`kFull`). A `QueueResult<T>` contains a value only when its status is `kSuccess`. Calling `close()` persistently rejects new writes but preserves queued elements for consumers to drain; a closed, drained pop reports `kClosed`. In `Queue` and `BoundedQueue`, a `std::stop_token` cancels only its individual wait and does not close the queue; closing a bounded queue also wakes blocked producers. Closing a `CircularBuffer` rejects future writes while preserving existing elements, and `clear()` does not reopen it.
+`ContainerStatus` distinguishes success, an open-and-empty non-blocking pop (`kEmpty`), closure (`kClosed`), per-operation cancellation (`kStopped`), and a full bounded queue (`kFull`). A `QueueResult<T>` contains a value only when its status is `kSuccess`. Calling `close()` persistently rejects new writes but preserves queued elements for consumers to drain; a closed, drained pop reports `kClosed`. In `ConcurrentQueue` and `ConcurrentBoundedQueue`, a `std::stop_token` cancels only its individual wait and does not close the queue; closing a bounded queue also wakes blocked producers. Closing a `ConcurrentCircularBuffer` rejects future writes while preserving existing elements, and `clear()` does not reopen it.
 
 The `size()`, `empty()`, `full()`, and `isClosed()` methods return thread-safe snapshots, not reservations. Another thread can change a container immediately afterward; use its push/pop operation when the operation itself must be atomic.
 
 Concurrency tests are in [`tests/concurrency/`](./tests/concurrency/). Run an individual suite with:
 
 ```sh
-/opt/homebrew/bin/ctest --test-dir build -R 'QueueTest' --output-on-failure
-/opt/homebrew/bin/ctest --test-dir build -R 'BoundedQueueTest' --output-on-failure
-/opt/homebrew/bin/ctest --test-dir build -R 'CircularBufferTest' --output-on-failure
+/opt/homebrew/bin/ctest --test-dir build -R 'ConcurrentQueueTest' --output-on-failure
+/opt/homebrew/bin/ctest --test-dir build -R 'ConcurrentBoundedQueueTest' --output-on-failure
+/opt/homebrew/bin/ctest --test-dir build -R 'ConcurrentCircularBufferTest' --output-on-failure
 ```
 
 ## Build and test prerequisites

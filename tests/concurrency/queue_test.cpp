@@ -3,7 +3,7 @@
  * @brief Tests queue operations, lifecycle behavior, and concurrent access.
  *****************************************************************************/
 
-#include "systemcore/concurrency/queue.hpp"
+#include "systemcore/concurrency/containers/concurrent_queue.hpp"
 
 #include <gtest/gtest.h>
 
@@ -20,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-namespace systemcore::concurrency
+namespace systemcore::concurrency::containers
 {
 
 namespace
@@ -37,61 +37,61 @@ void expectEveryValueOnce(std::vector<int> values, const std::size_t count)
 
 } // namespace
 
-TEST(QueueTest, PushSupportsCopiesMovesAndFifoRetrieval)
+TEST(ConcurrentQueueTest, PushSupportsCopiesMovesAndFifoRetrieval)
 {
-    Queue<std::string> queue;
+    ConcurrentQueue<std::string> queue;
     const std::string first = "first";
     std::string second = "second";
 
-    EXPECT_EQ(queue.push(first), QueueStatus::kSuccess);
-    EXPECT_EQ(queue.push(std::move(second)), QueueStatus::kSuccess);
+    EXPECT_EQ(queue.push(first), ContainerStatus::kSuccess);
+    EXPECT_EQ(queue.push(std::move(second)), ContainerStatus::kSuccess);
 
     EXPECT_EQ(queue.size(), 2);
     EXPECT_FALSE(queue.empty());
 
     auto first_value = queue.tryPop();
     auto second_value = queue.waitPop(std::stop_token{});
-    ASSERT_EQ(first_value.status, QueueStatus::kSuccess);
-    ASSERT_EQ(second_value.status, QueueStatus::kSuccess);
+    ASSERT_EQ(first_value.status, ContainerStatus::kSuccess);
+    ASSERT_EQ(second_value.status, ContainerStatus::kSuccess);
     ASSERT_TRUE(first_value.value.has_value());
     ASSERT_TRUE(second_value.value.has_value());
     EXPECT_EQ(*first_value.value, "first");
     EXPECT_EQ(*second_value.value, "second");
     EXPECT_TRUE(queue.empty());
-    EXPECT_EQ(queue.tryPop().status, QueueStatus::kEmpty);
+    EXPECT_EQ(queue.tryPop().status, ContainerStatus::kEmpty);
 }
 
-TEST(QueueTest, SupportsMoveOnlyValues)
+TEST(ConcurrentQueueTest, SupportsMoveOnlyValues)
 {
-    Queue<std::unique_ptr<int>> queue;
-    ASSERT_EQ(queue.push(std::make_unique<int>(42)), QueueStatus::kSuccess);
+    ConcurrentQueue<std::unique_ptr<int>> queue;
+    ASSERT_EQ(queue.push(std::make_unique<int>(42)), ContainerStatus::kSuccess);
 
     auto value = queue.tryPop();
-    ASSERT_EQ(value.status, QueueStatus::kSuccess);
+    ASSERT_EQ(value.status, ContainerStatus::kSuccess);
     ASSERT_TRUE(value.value.has_value());
     ASSERT_NE(*value.value, nullptr);
     EXPECT_EQ(**value.value, 42);
 }
 
-TEST(QueueTest, WaitPopReturnsStoppedWhenCancelled)
+TEST(ConcurrentQueueTest, WaitPopReturnsStoppedWhenCancelled)
 {
-    Queue<int> queue;
+    ConcurrentQueue<int> queue;
     std::stop_source stop_source;
     stop_source.request_stop();
 
     EXPECT_EQ(
-        queue.waitPop(stop_source.get_token()).status, QueueStatus::kStopped);
+        queue.waitPop(stop_source.get_token()).status, ContainerStatus::kStopped);
     EXPECT_FALSE(queue.isClosed());
-    EXPECT_EQ(queue.push(42), QueueStatus::kSuccess);
+    EXPECT_EQ(queue.push(42), ContainerStatus::kSuccess);
 }
 
-TEST(QueueTest, WaitPopReturnsStoppedWhenCancelledWhileWaiting)
+TEST(ConcurrentQueueTest, WaitPopReturnsStoppedWhenCancelledWhileWaiting)
 {
-    Queue<int> queue;
+    ConcurrentQueue<int> queue;
     std::stop_source stop_source;
     std::promise<void> started;
     auto started_future = started.get_future();
-    std::promise<QueueStatus> result;
+    std::promise<ContainerStatus> result;
     auto result_future = result.get_future();
 
     std::thread consumer([&] {
@@ -112,38 +112,38 @@ TEST(QueueTest, WaitPopReturnsStoppedWhenCancelledWhileWaiting)
     }
 
     consumer.join();
-    EXPECT_EQ(result_future.get(), QueueStatus::kStopped);
+    EXPECT_EQ(result_future.get(), ContainerStatus::kStopped);
 }
 
-TEST(QueueTest, CloseRejectsPushesAndDrainsExistingValues)
+TEST(ConcurrentQueueTest, CloseRejectsPushesAndDrainsExistingValues)
 {
-    Queue<int> queue;
-    ASSERT_EQ(queue.push(1), QueueStatus::kSuccess);
-    ASSERT_EQ(queue.push(2), QueueStatus::kSuccess);
+    ConcurrentQueue<int> queue;
+    ASSERT_EQ(queue.push(1), ContainerStatus::kSuccess);
+    ASSERT_EQ(queue.push(2), ContainerStatus::kSuccess);
 
     queue.close();
     queue.close();
 
     EXPECT_TRUE(queue.isClosed());
-    EXPECT_EQ(queue.push(3), QueueStatus::kClosed);
-    EXPECT_EQ(queue.push(4), QueueStatus::kClosed);
+    EXPECT_EQ(queue.push(3), ContainerStatus::kClosed);
+    EXPECT_EQ(queue.push(4), ContainerStatus::kClosed);
 
     const auto first = queue.waitPop(std::stop_token{});
     const auto second = queue.waitPop(std::stop_token{});
-    ASSERT_EQ(first.status, QueueStatus::kSuccess);
-    ASSERT_EQ(second.status, QueueStatus::kSuccess);
+    ASSERT_EQ(first.status, ContainerStatus::kSuccess);
+    ASSERT_EQ(second.status, ContainerStatus::kSuccess);
     ASSERT_TRUE(first.value.has_value());
     ASSERT_TRUE(second.value.has_value());
     EXPECT_EQ(*first.value, 1);
     EXPECT_EQ(*second.value, 2);
-    EXPECT_EQ(queue.waitPop(std::stop_token{}).status, QueueStatus::kClosed);
-    EXPECT_EQ(queue.tryPop().status, QueueStatus::kClosed);
+    EXPECT_EQ(queue.waitPop(std::stop_token{}).status, ContainerStatus::kClosed);
+    EXPECT_EQ(queue.tryPop().status, ContainerStatus::kClosed);
 }
 
-TEST(QueueTest, CloseReleasesWaitingConsumer)
+TEST(ConcurrentQueueTest, CloseReleasesWaitingConsumer)
 {
-    Queue<int> queue;
-    QueueStatus result = QueueStatus::kSuccess;
+    ConcurrentQueue<int> queue;
+    ContainerStatus result = ContainerStatus::kSuccess;
 
     std::thread consumer([&] {
         result = queue.waitPop(std::stop_token{}).status;
@@ -152,13 +152,13 @@ TEST(QueueTest, CloseReleasesWaitingConsumer)
     queue.close();
     consumer.join();
 
-    EXPECT_EQ(result, QueueStatus::kClosed);
+    EXPECT_EQ(result, ContainerStatus::kClosed);
 }
 
-TEST(QueueTest, SingleProducerSingleConsumerPreservesOrder)
+TEST(ConcurrentQueueTest, SingleProducerSingleConsumerPreservesOrder)
 {
     constexpr std::size_t item_count = 500;
-    Queue<int> queue;
+    ConcurrentQueue<int> queue;
     std::vector<int> consumed;
     bool pushes_succeeded = true;
     bool consumer_succeeded = true;
@@ -167,11 +167,11 @@ TEST(QueueTest, SingleProducerSingleConsumerPreservesOrder)
         while (true)
         {
             const auto result = queue.waitPop(std::stop_token{});
-            if (result.status == QueueStatus::kClosed)
+            if (result.status == ContainerStatus::kClosed)
             {
                 break;
             }
-            if (result.status != QueueStatus::kSuccess || !result.value)
+            if (result.status != ContainerStatus::kSuccess || !result.value)
             {
                 consumer_succeeded = false;
                 break;
@@ -183,7 +183,7 @@ TEST(QueueTest, SingleProducerSingleConsumerPreservesOrder)
     std::thread producer([&] {
         for (std::size_t value = 0; value < item_count; ++value)
         {
-            if (queue.push(static_cast<int>(value)) != QueueStatus::kSuccess)
+            if (queue.push(static_cast<int>(value)) != ContainerStatus::kSuccess)
             {
                 pushes_succeeded = false;
             }
@@ -201,13 +201,13 @@ TEST(QueueTest, SingleProducerSingleConsumerPreservesOrder)
     EXPECT_EQ(consumed, expected);
 }
 
-TEST(QueueTest, MultipleProducersSingleConsumerReceivesEveryValue)
+TEST(ConcurrentQueueTest, MultipleProducersSingleConsumerReceivesEveryValue)
 {
     constexpr std::size_t producer_count = 4;
     constexpr std::size_t items_per_producer = 250;
     constexpr std::size_t total_items = producer_count * items_per_producer;
 
-    Queue<int> queue;
+    ConcurrentQueue<int> queue;
     std::vector<int> consumed;
     std::atomic<bool> pushes_succeeded{true};
     bool consumer_succeeded = true;
@@ -216,11 +216,11 @@ TEST(QueueTest, MultipleProducersSingleConsumerReceivesEveryValue)
         while (true)
         {
             const auto result = queue.waitPop(std::stop_token{});
-            if (result.status == QueueStatus::kClosed)
+            if (result.status == ContainerStatus::kClosed)
             {
                 break;
             }
-            if (result.status != QueueStatus::kSuccess || !result.value)
+            if (result.status != ContainerStatus::kSuccess || !result.value)
             {
                 consumer_succeeded = false;
                 break;
@@ -237,7 +237,7 @@ TEST(QueueTest, MultipleProducersSingleConsumerReceivesEveryValue)
             for (std::size_t i = 0; i < items_per_producer; ++i)
             {
                 if (queue.push(static_cast<int>(first_value + i)) !=
-                    QueueStatus::kSuccess)
+                    ContainerStatus::kSuccess)
                 {
                     pushes_succeeded.store(false);
                 }
@@ -257,13 +257,13 @@ TEST(QueueTest, MultipleProducersSingleConsumerReceivesEveryValue)
     expectEveryValueOnce(std::move(consumed), total_items);
 }
 
-TEST(QueueTest, SingleProducerMultipleConsumersReceiveEveryValue)
+TEST(ConcurrentQueueTest, SingleProducerMultipleConsumersReceiveEveryValue)
 {
     constexpr std::size_t consumer_count = 4;
     constexpr std::size_t items_per_consumer = 250;
     constexpr std::size_t total_items = consumer_count * items_per_consumer;
 
-    Queue<int> queue;
+    ConcurrentQueue<int> queue;
     std::vector<std::vector<int>> consumed(consumer_count);
     std::atomic<bool> consumers_succeeded{true};
     bool pushes_succeeded = true;
@@ -276,11 +276,11 @@ TEST(QueueTest, SingleProducerMultipleConsumersReceiveEveryValue)
             while (true)
             {
                 const auto result = queue.waitPop(std::stop_token{});
-                if (result.status == QueueStatus::kClosed)
+                if (result.status == ContainerStatus::kClosed)
                 {
                     break;
                 }
-                if (result.status != QueueStatus::kSuccess || !result.value)
+                if (result.status != ContainerStatus::kSuccess || !result.value)
                 {
                     consumers_succeeded.store(false);
                     break;
@@ -293,7 +293,7 @@ TEST(QueueTest, SingleProducerMultipleConsumersReceiveEveryValue)
     std::thread producer([&] {
         for (std::size_t value = 0; value < total_items; ++value)
         {
-            if (queue.push(static_cast<int>(value)) != QueueStatus::kSuccess)
+            if (queue.push(static_cast<int>(value)) != ContainerStatus::kSuccess)
             {
                 pushes_succeeded = false;
             }
@@ -318,7 +318,7 @@ TEST(QueueTest, SingleProducerMultipleConsumersReceiveEveryValue)
     expectEveryValueOnce(std::move(all_values), total_items);
 }
 
-TEST(QueueTest, StressTestHandlesMultipleProducersAndConsumers)
+TEST(ConcurrentQueueTest, StressTestHandlesMultipleProducersAndConsumers)
 {
     constexpr std::size_t producer_count = 4;
     constexpr std::size_t consumer_count = 4;
@@ -327,7 +327,7 @@ TEST(QueueTest, StressTestHandlesMultipleProducersAndConsumers)
         producer_count * items_per_producer / consumer_count;
     constexpr std::size_t total_items = producer_count * items_per_producer;
 
-    Queue<int> queue;
+    ConcurrentQueue<int> queue;
     std::vector<std::vector<int>> consumed(consumer_count);
     std::vector<std::thread> consumers;
 
@@ -339,7 +339,7 @@ TEST(QueueTest, StressTestHandlesMultipleProducersAndConsumers)
             for (std::size_t i = 0; i < items_per_consumer; ++i)
             {
                 const auto result = queue.waitPop(std::stop_token{});
-                if (result.status == QueueStatus::kSuccess && result.value)
+                if (result.status == ContainerStatus::kSuccess && result.value)
                 {
                     values.push_back(*result.value);
                 }
@@ -381,4 +381,4 @@ TEST(QueueTest, StressTestHandlesMultipleProducersAndConsumers)
     EXPECT_EQ(actual_values, expected_values);
 }
 
-} // namespace systemcore::concurrency
+} // namespace systemcore::concurrency::containers

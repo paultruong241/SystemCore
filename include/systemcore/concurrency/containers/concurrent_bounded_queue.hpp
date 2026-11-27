@@ -1,12 +1,13 @@
 /*****************************************************************************
- * @file bounded_queue.hpp
+ * @file concurrent_bounded_queue.hpp
  * @brief Declares a fixed-capacity, thread-safe FIFO queue.
  *****************************************************************************/
 #pragma once
 
-#include "systemcore/concurrency/queue_status.hpp"
+#include "systemcore/concurrency/containers/pop_status.hpp"
 
 #include <condition_variable>
+#include <concepts>
 #include <cstddef>
 #include <mutex>
 #include <optional>
@@ -15,11 +16,11 @@
 #include <stop_token>
 #include <utility>
 
-namespace systemcore::concurrency
+namespace systemcore::concurrency::containers
 {
 
 /**
- * @brief A fixed-capacity, thread-safe FIFO queue.
+ * @brief Provides a fixed-capacity, thread-safe FIFO queue.
  *
  * Elements are inserted at the back and removed from the front, preserving
  * their insertion order. The queue supports concurrent access from multiple
@@ -35,7 +36,7 @@ namespace systemcore::concurrency
  * @tparam T Type of elements stored in the queue.
  */
 template <typename T>
-class BoundedQueue
+class ConcurrentBoundedQueue
 {
 public:
     /// Default capacity used when no capacity is specified.
@@ -46,7 +47,8 @@ public:
      * @param capacity Maximum number of elements the queue can store.
      * @throws std::invalid_argument If @p capacity is zero.
      */
-    explicit BoundedQueue(const std::size_t capacity = kDefaultCapacity)
+    explicit ConcurrentBoundedQueue(
+        const std::size_t capacity = kDefaultCapacity)
         : capacity_(validateCapacity(capacity))
     {
     }
@@ -54,88 +56,45 @@ public:
     /**
      * @brief Attempts to copy an element into the queue without blocking.
      * @param item Element to copy into the queue.
-     * @return @c kSuccess if inserted, @c kFull if full, or @c kClosed if closed.
+     * @return @c ContainerStatus::kSuccess if inserted,
+     *         @c ContainerStatus::kFull if full, or
+     *         @c ContainerStatus::kClosed if the queue is closed.
      */
-    QueueStatus tryPush(const T &item)
+    ContainerStatus tryPush(const T &item)
+        requires std::copy_constructible<T>
     {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-
-            if (closed_)
-            {
-                return QueueStatus::kClosed;
-            }
-            if (queue_.size() == capacity_)
-            {
-                return QueueStatus::kFull;
-            }
-
-            queue_.push(item);
-        }
-
-        not_empty_cv_.notify_one();
-
-        return QueueStatus::kSuccess;
+        return tryPushImpl(item);
     }
 
     /**
      * @brief Attempts to move an element into the queue without blocking.
      * @param item Element to move into the queue.
-     * @return @c kSuccess if inserted, @c kFull if full, or @c kClosed if closed.
+     * @return @c ContainerStatus::kSuccess if inserted,
+     *         @c ContainerStatus::kFull if full, or
+     *         @c ContainerStatus::kClosed if the queue is closed.
      */
-    QueueStatus tryPush(T &&item)
+    ContainerStatus tryPush(T &&item)
+        requires std::move_constructible<T>
     {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-
-            if (closed_)
-            {
-                return QueueStatus::kClosed;
-            }
-            if (queue_.size() == capacity_)
-            {
-                return QueueStatus::kFull;
-            }
-
-            queue_.push(std::move(item));
-        }
-
-        not_empty_cv_.notify_one();
-
-        return QueueStatus::kSuccess;
+        return tryPushImpl(std::move(item));
     }
 
     /**
      * @brief Copies an element, waiting for capacity, cancellation, or closure.
      *
      * This overload blocks while the queue is full. If the wait is cancelled
-     * before capacity becomes available, or if the queue is closed, the queue
-     * is unchanged.
+     * before capacity becomes available or if the queue is closed, the queue
+     * remains unchanged.
      * @param item Element to copy into the queue.
-     * @param stop Token used to cancel the wait.
-     * @return @c kSuccess if inserted, @c kStopped if cancelled, or
-     *         @c kClosed if the queue is closed.
+     * @param stop Token used to cancel the wait. Defaults to a non-stoppable token.
+     * @return @c ContainerStatus::kSuccess if inserted,
+     *         @c ContainerStatus::kStopped if cancelled, or
+     *         @c ContainerStatus::kClosed if the queue is closed.
      */
-    QueueStatus waitPush(const T &item, std::stop_token stop)
+    ContainerStatus waitPush(const T &item, std::stop_token stop = {})
+        requires std::copy_constructible<T>
     {
-        std::unique_lock<std::mutex> lock(mutex_);
-
-        if (!not_full_cv_.wait(lock, stop, [this]
-                               { return closed_ || queue_.size() < capacity_; }))
-        {
-            return QueueStatus::kStopped;
-        }
-        if (closed_)
-        {
-            return QueueStatus::kClosed;
-        }
-
-        queue_.push(item);
-
-        lock.unlock();
-        not_empty_cv_.notify_one();
-
-        return QueueStatus::kSuccess;
+        return waitPushImpl(item, stop);
     }
 
     /**
@@ -143,40 +102,26 @@ public:
      *
      * This overload blocks while the queue is full. If the wait is cancelled
      * before capacity becomes available, or if the queue is closed, the queue
-     * is unchanged.
+     * remains unchanged.
      * @param item Element to move into the queue.
-     * @param stop Token used to cancel the wait.
-     * @return @c kSuccess if inserted, @c kStopped if cancelled, or
-     *         @c kClosed if the queue is closed.
+     * @param stop Token used to cancel the wait. Defaults to a non-stoppable token.
+     * @return @c ContainerStatus::kSuccess if inserted,
+     *         @c ContainerStatus::kStopped if cancelled, or
+     *         @c ContainerStatus::kClosed if the queue is closed.
      */
-    QueueStatus waitPush(T &&item, std::stop_token stop)
+    ContainerStatus waitPush(T &&item, std::stop_token stop = {})
+        requires std::move_constructible<T>
     {
-        std::unique_lock<std::mutex> lock(mutex_);
-
-        if (!not_full_cv_.wait(lock, stop, [this]
-                               { return closed_ || queue_.size() < capacity_; }))
-        {
-            return QueueStatus::kStopped;
-        }
-        if (closed_)
-        {
-            return QueueStatus::kClosed;
-        }
-
-        queue_.push(std::move(item));
-
-        lock.unlock();
-        not_empty_cv_.notify_one();
-
-        return QueueStatus::kSuccess;
+        return waitPushImpl(std::move(item), stop);
     }
 
     /**
      * @brief Attempts to remove the oldest element without blocking.
-     * @return The oldest value and @c kSuccess, @c kEmpty if open and empty,
-     *         or @c kClosed if closed and empty.
+     * @return The oldest value with @c ContainerStatus::kSuccess,
+     *         @c ContainerStatus::kEmpty if the open queue is empty, or
+     *         @c ContainerStatus::kClosed if the closed queue is empty.
      */
-    QueueResult<T> tryPop()
+    PopResult<T> tryPop()
     {
         std::optional<T> item;
 
@@ -185,7 +130,9 @@ public:
 
             if (queue_.empty())
             {
-                return {closed_ ? QueueStatus::kClosed : QueueStatus::kEmpty, {}};
+                return {
+                    closed_ ? ContainerStatus::kClosed : ContainerStatus::kEmpty,
+                    {}};
             }
 
             item.emplace(std::move(queue_.front()));
@@ -194,28 +141,29 @@ public:
 
         not_full_cv_.notify_one();
 
-        return {QueueStatus::kSuccess, std::move(item)};
+        return {ContainerStatus::kSuccess, std::move(item)};
     }
 
     /**
-     * @brief Waits for an element and removes it, or returns when stopped or closed.
+     * @brief Waits for and removes an element, or returns when stopped or closed.
      * @param stop Token used to cancel the wait.
-     * @return The oldest value and @c kSuccess, @c kStopped if cancelled, or
-     *         @c kClosed if closed after all queued elements are removed.
+     * @return The oldest value with @c ContainerStatus::kSuccess,
+     *         @c ContainerStatus::kStopped if cancelled, or
+     *         @c ContainerStatus::kClosed if the closed queue is empty.
      */
-    QueueResult<T> waitPop(std::stop_token stop)
+    PopResult<T> waitPop(std::stop_token stop = {})
     {
         std::unique_lock<std::mutex> lock(mutex_);
 
-        if (!not_empty_cv_.wait(lock, stop, [this]
-                                { return closed_ || !queue_.empty(); }))
+        if (!not_empty_cv_.wait(
+                lock, stop, [this] { return closed_ || !queue_.empty(); }))
         {
-            return {QueueStatus::kStopped, {}};
+            return {ContainerStatus::kStopped, {}};
         }
 
         if (queue_.empty())
         {
-            return {QueueStatus::kClosed, {}};
+            return {ContainerStatus::kClosed, {}};
         }
 
         std::optional<T> item(
@@ -226,7 +174,7 @@ public:
         lock.unlock();
         not_full_cv_.notify_one();
 
-        return {QueueStatus::kSuccess, std::move(item)};
+        return {ContainerStatus::kSuccess, std::move(item)};
     }
 
     /**
@@ -246,7 +194,7 @@ public:
     }
 
     /**
-     * @brief Checks whether the queue has been closed.
+     * @brief Checks whether the queue is closed.
      * @return @c true if closed; otherwise @c false.
      */
     bool isClosed() const
@@ -276,8 +224,8 @@ public:
     }
 
     /**
-     * @brief Returns the number of elements currently stored.
-     * @return A snapshot of the number of elements currently in the queue.
+     * @brief Returns the current number of elements in the queue.
+     * @return A snapshot of the queue size.
      */
     std::size_t size() const
     {
@@ -306,10 +254,74 @@ private:
         if (capacity == 0)
         {
             throw std::invalid_argument(
-                "BoundedQueue capacity must be greater than zero");
+                "ConcurrentBoundedQueue capacity must be greater than zero");
         }
 
         return capacity;
+    }
+
+    /**
+     * @brief Attempts to push an element into the queue without waiting.
+     * @tparam U Type deduced from the element being pushed.
+     * @param item Element to copy or move into the queue.
+     * @return @c ContainerStatus::kSuccess if inserted,
+     *         @c ContainerStatus::kFull if full, or
+     *         @c ContainerStatus::kClosed if the queue is closed.
+     */
+    template <typename U>
+    ContainerStatus tryPushImpl(U &&item)
+    {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+
+            if (closed_)
+            {
+                return ContainerStatus::kClosed;
+            }
+            if (queue_.size() == capacity_)
+            {
+                return ContainerStatus::kFull;
+            }
+
+            queue_.emplace(std::forward<U>(item));
+        }
+
+        not_empty_cv_.notify_one();
+
+        return ContainerStatus::kSuccess;
+    }
+
+    /**
+     * @brief Waits for space to enqueue an element, cancellation, or closure.
+     * @tparam U Type deduced from the element being pushed.
+     * @param item Element to copy or move into the queue.
+     * @param stop Token used to cancel the wait.
+     * @return @c ContainerStatus::kSuccess if inserted,
+     *         @c ContainerStatus::kStopped if cancelled, or
+     *         @c ContainerStatus::kClosed if the queue is closed.
+     */
+    template <typename U>
+    ContainerStatus waitPushImpl(U &&item, std::stop_token stop = {})
+    {
+        {
+            std::unique_lock<std::mutex> lock(mutex_);
+
+            if (!not_full_cv_.wait(
+                    lock, stop, [this] { return closed_ || queue_.size() < capacity_; }))
+            {
+                return ContainerStatus::kStopped;
+            }
+            if (closed_)
+            {
+                return ContainerStatus::kClosed;
+            }
+
+            queue_.emplace(std::forward<U>(item));
+        }
+
+        not_empty_cv_.notify_one();
+
+        return ContainerStatus::kSuccess;
     }
 
     /// FIFO storage for queued elements.
@@ -331,4 +343,4 @@ private:
     std::condition_variable_any not_full_cv_;
 };
 
-} // namespace systemcore::concurrency
+} // namespace systemcore::concurrency::containers

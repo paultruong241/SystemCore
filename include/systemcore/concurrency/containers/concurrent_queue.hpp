@@ -1,12 +1,13 @@
 /*****************************************************************************
- * @file queue.hpp
+ * @file concurrent_queue.hpp
  * @brief Declares an unbounded, thread-safe FIFO queue.
  *****************************************************************************/
 #pragma once
 
-#include "systemcore/concurrency/queue_status.hpp"
+#include "systemcore/concurrency/containers/pop_status.hpp"
 
 #include <condition_variable>
+#include <concepts>
 #include <cstddef>
 #include <mutex>
 #include <optional>
@@ -14,11 +15,11 @@
 #include <stop_token>
 #include <utility>
 
-namespace systemcore::concurrency
+namespace systemcore::concurrency::containers
 {
 
 /**
- * @brief A thread-safe, unbounded FIFO queue.
+ * @brief Provides an unbounded, thread-safe FIFO queue.
  *
  * Elements are inserted at the back and removed from the front. Retrieval can
  * either return immediately or wait until an element is available. Closing the
@@ -27,61 +28,47 @@ namespace systemcore::concurrency
  * @tparam T Type of elements stored in the queue.
  */
 template <typename T>
-class Queue
+class ConcurrentQueue
 {
 public:
     /**
      * @brief Copies an element into the queue unless it is closed.
      * @param item Element to copy into the queue.
-     * @return @c kSuccess if inserted; @c kClosed if the queue is closed.
+     * @return @c ContainerStatus::kSuccess if inserted, or
+     *         @c ContainerStatus::kClosed if the queue is closed.
      */
-    QueueStatus push(const T &item)
+    ContainerStatus push(const T &item)
+        requires std::copy_constructible<T>
     {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            if (closed_)
-            {
-                return QueueStatus::kClosed;
-            }
-            queue_.push(item);
-        }
-
-        not_empty_cv_.notify_one();
-        return QueueStatus::kSuccess;
+        return pushImpl(item);
     }
 
     /**
      * @brief Moves an element into the queue unless it is closed.
      * @param item Element to move into the queue.
-     * @return @c kSuccess if inserted; @c kClosed if the queue is closed.
+     * @return @c ContainerStatus::kSuccess if inserted, or
+     *         @c ContainerStatus::kClosed if the queue is closed.
      */
-    QueueStatus push(T &&item)
+    ContainerStatus push(T &&item)
+        requires std::move_constructible<T>
     {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            if (closed_)
-            {
-                return QueueStatus::kClosed;
-            }
-            queue_.push(std::move(item));
-        }
-
-        not_empty_cv_.notify_one();
-        return QueueStatus::kSuccess;
+        return pushImpl(std::move(item));
     }
 
     /**
      * @brief Attempts to remove the oldest element without blocking.
-     * @return The oldest value and @c kSuccess, @c kEmpty if open and empty,
-     *         or @c kClosed if closed and empty.
+     * @return The oldest value with @c ContainerStatus::kSuccess,
+     *         @c ContainerStatus::kEmpty if the open queue is empty, or
+     *         @c ContainerStatus::kClosed if the closed queue is empty.
      */
-    QueueResult<T> tryPop()
+    PopResult<T> tryPop()
     {
         std::lock_guard<std::mutex> lock(mutex_);
 
         if (queue_.empty())
         {
-            return {closed_ ? QueueStatus::kClosed : QueueStatus::kEmpty, {}};
+            return {
+                closed_ ? ContainerStatus::kClosed : ContainerStatus::kEmpty, {}};
         }
 
         std::optional<T> item(
@@ -89,28 +76,29 @@ public:
 
         queue_.pop();
 
-        return {QueueStatus::kSuccess, std::move(item)};
+        return {ContainerStatus::kSuccess, std::move(item)};
     }
 
     /**
-     * @brief Waits for an element and removes it, or returns when stopped or closed.
+     * @brief Waits for and removes an element, or returns when stopped or closed.
      * @param stop Token used to cancel the wait.
-     * @return The oldest value and @c kSuccess, @c kStopped if cancelled, or
-     *         @c kClosed if closed after all queued elements are removed.
+     * @return The oldest value with @c ContainerStatus::kSuccess,
+     *         @c ContainerStatus::kStopped if cancelled, or
+     *         @c ContainerStatus::kClosed if the closed queue is empty.
      */
-    QueueResult<T> waitPop(std::stop_token stop)
+    PopResult<T> waitPop(std::stop_token stop = {})
     {
         std::unique_lock<std::mutex> lock(mutex_);
 
         if (!not_empty_cv_.wait(
                 lock, stop, [this] { return closed_ || !queue_.empty(); }))
         {
-            return {QueueStatus::kStopped, {}};
+            return {ContainerStatus::kStopped, {}};
         }
 
         if (queue_.empty())
         {
-            return {QueueStatus::kClosed, {}};
+            return {ContainerStatus::kClosed, {}};
         }
 
         std::optional<T> item(
@@ -118,7 +106,7 @@ public:
 
         queue_.pop();
 
-        return {QueueStatus::kSuccess, std::move(item)};
+        return {ContainerStatus::kSuccess, std::move(item)};
     }
 
     /**
@@ -137,7 +125,7 @@ public:
     }
 
     /**
-     * @brief Checks whether the queue has been closed.
+     * @brief Checks whether the queue is closed.
      * @return @c true if closed; otherwise @c false.
      */
     bool isClosed() const
@@ -147,7 +135,7 @@ public:
     }
 
     /**
-     * @brief Checks whether the queue is empty.
+     * @brief Checks whether the queue contains no elements.
      * @return @c true if the queue is empty; otherwise @c false.
      */
     bool empty() const
@@ -157,8 +145,8 @@ public:
     }
 
     /**
-     * @brief Returns the number of elements currently in the queue.
-     * @return A snapshot of the number of queued elements.
+     * @brief Returns the current number of elements in the queue.
+     * @return A snapshot of the queue size.
      */
     std::size_t size() const
     {
@@ -167,6 +155,31 @@ public:
     }
 
 private:
+    /**
+     * @brief Pushes an element into the queue by copying or moving it.
+     * @tparam U Type deduced from the element being pushed.
+     * @param item Element to copy or move into the queue.
+     * @return @c ContainerStatus::kSuccess if inserted, or
+     *         @c ContainerStatus::kClosed if the queue is closed.
+     */
+    template <typename U>
+    ContainerStatus pushImpl(U &&item)
+    {
+        {
+            std::lock_guard lock(mutex_);
+
+            if (closed_)
+            {
+                return ContainerStatus::kClosed;
+            }
+
+            queue_.emplace(std::forward<U>(item));
+        }
+
+        not_empty_cv_.notify_one();
+        return ContainerStatus::kSuccess;
+    }
+
     /// FIFO storage for queued elements.
     std::queue<T> queue_;
 
@@ -180,4 +193,4 @@ private:
     std::condition_variable_any not_empty_cv_;
 };
 
-} // namespace systemcore::concurrency
+} // namespace systemcore::concurrency::containers

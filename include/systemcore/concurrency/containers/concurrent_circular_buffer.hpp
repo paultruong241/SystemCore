@@ -1,11 +1,13 @@
 /*****************************************************************************
- * @file circular_buffer.hpp
- * @brief Declares a thread-safe circular buffer that overwrites its oldest element when full.
+ * @file concurrent_circular_buffer.hpp
+ * @brief Declares a thread-safe circular buffer that overwrites its oldest
+ *        element when full.
  *****************************************************************************/
 #pragma once
 
-#include "systemcore/concurrency/queue_status.hpp"
+#include "systemcore/concurrency/containers/pop_status.hpp"
 
+#include <concepts>
 #include <cstddef>
 #include <mutex>
 #include <optional>
@@ -13,11 +15,11 @@
 #include <utility>
 #include <vector>
 
-namespace systemcore::concurrency
+namespace systemcore::concurrency::containers
 {
 
 /**
- * @brief A fixed-capacity, thread-safe circular buffer.
+ * @brief Provides a fixed-capacity, thread-safe circular buffer.
  *
  * Elements are removed in FIFO order. @c head_index_ identifies the next slot
  * to write, while @c tail_index_ identifies the oldest element to remove.
@@ -28,7 +30,7 @@ namespace systemcore::concurrency
  * @tparam T Type of elements stored in the buffer.
  */
 template <typename T>
-class CircularBuffer
+class ConcurrentCircularBuffer
 {
 public:
     /// Default capacity used when no capacity is specified.
@@ -39,7 +41,7 @@ public:
      * @param capacity Maximum number of elements the buffer can store.
      * @throws std::invalid_argument If @p capacity is zero.
      */
-    explicit CircularBuffer(
+    explicit ConcurrentCircularBuffer(
         const std::size_t capacity = kDefaultCapacity)
         : capacity_(validateCapacity(capacity)),
           buffer_(capacity_)
@@ -49,57 +51,64 @@ public:
     /**
      * @brief Copies an element unless closed, overwriting the oldest if full.
      * @param item Element to copy into the buffer.
-     * @return @c kSuccess if inserted or @c kClosed if the buffer is closed.
+     * @return @c ContainerStatus::kSuccess if inserted, or
+     *         @c ContainerStatus::kClosed if the buffer is closed.
      */
-    QueueStatus pushOverwrite(const T &item)
+    ContainerStatus pushOverwrite(const T &item)
+        requires std::copy_constructible<T>
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (closed_)
         {
-            return QueueStatus::kClosed;
+            return ContainerStatus::kClosed;
         }
         overwritePush(item);
-        return QueueStatus::kSuccess;
+        return ContainerStatus::kSuccess;
     }
 
     /**
      * @brief Moves an element unless closed, overwriting the oldest if full.
      * @param item Element to move into the buffer.
-     * @return @c kSuccess if inserted or @c kClosed if the buffer is closed.
+     * @return @c ContainerStatus::kSuccess if inserted, or
+     *         @c ContainerStatus::kClosed if the buffer is closed.
      */
-    QueueStatus pushOverwrite(T &&item)
+    ContainerStatus pushOverwrite(T &&item)
+        requires std::move_constructible<T>
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (closed_)
         {
-            return QueueStatus::kClosed;
+            return ContainerStatus::kClosed;
         }
         overwritePush(std::move(item));
-        return QueueStatus::kSuccess;
+        return ContainerStatus::kSuccess;
     }
 
     /**
      * @brief Removes and returns the oldest element if one is available.
-     * @return The oldest value and @c kSuccess, @c kEmpty if open and empty,
-     *         or @c kClosed if closed and empty.
+     * @return The oldest value with @c ContainerStatus::kSuccess,
+     *         @c ContainerStatus::kEmpty if the open buffer is empty, or
+     *         @c ContainerStatus::kClosed if the closed buffer is empty.
      */
-    QueueResult<T> tryPop()
+    PopResult<T> tryPop()
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (count_ == 0)
         {
-            return {closed_ ? QueueStatus::kClosed : QueueStatus::kEmpty, {}};
+            return {
+                closed_ ? ContainerStatus::kClosed : ContainerStatus::kEmpty, {}};
         }
 
         std::optional<T> item(std::move(buffer_[tail_index_]));
         buffer_[tail_index_].reset();
         tail_index_ = (tail_index_ + 1) % capacity_;
         --count_;
-        return {QueueStatus::kSuccess, std::move(item)};
+        return {ContainerStatus::kSuccess, std::move(item)};
     }
 
     /**
-     * @brief Removes all elements and resets both circular indexes without reopening the buffer.
+     * @brief Removes all elements and resets the indexes without reopening the
+     *        buffer.
      */
     void clear()
     {
@@ -128,7 +137,7 @@ public:
     }
 
     /**
-     * @brief Checks whether the buffer has been closed.
+     * @brief Checks whether the buffer is closed.
      * @return @c true if closed; otherwise @c false.
      */
     bool isClosed() const
@@ -164,7 +173,7 @@ public:
     }
 
     /**
-     * @brief Returns the maximum number of elements the buffer can store.
+     * @brief Returns the buffer's maximum capacity.
      * @return The buffer capacity.
      */
     std::size_t capacity() const noexcept
@@ -173,8 +182,8 @@ public:
     }
 
     /**
-     * @brief Returns the current number of stored elements.
-     * @return A snapshot of the number of elements in the buffer.
+     * @brief Returns the current number of elements in the buffer.
+     * @return A snapshot of the buffer size.
      */
     std::size_t size() const
     {
@@ -194,28 +203,24 @@ private:
         if (capacity == 0)
         {
             throw std::invalid_argument(
-                "CircularBuffer capacity must be greater than zero");
+                "ConcurrentCircularBuffer capacity must be greater than zero");
         }
 
         return capacity;
     }
 
     /**
-     * @brief Inserts an element, discarding the oldest if the buffer is full.
+     * @brief Inserts an element and discards the oldest if the buffer is full.
      * @param item Element to copy or move into the buffer.
-     * @tparam U Deduced type of @p item, preserving whether it is an lvalue
-     *            or rvalue.
+     * @tparam U Type deduced from @p item.
      *
-     * The caller must hold @c mutex_. The head advances after every insertion.
-     * If full, the tail advances as well because the oldest slot was replaced;
-     * otherwise, the stored element count increases.
+     * The caller must hold @c mutex_. The write index advances after every
+     * insertion. If full, the read index advances because the oldest element
+     * was replaced; otherwise, the element count increases.
      */
     template <typename U>
     void overwritePush(U &&item)
     {
-        // Forward the value, copying or moving it into the current buffer slot.
-        // The optional constructs a value if the slot is empty or assigns to
-        // the existing value if the slot is occupied.
         buffer_[head_index_] = std::forward<U>(item);
         head_index_ = (head_index_ + 1) % capacity_;
 
@@ -251,4 +256,4 @@ private:
     bool closed_{false};
 };
 
-} // namespace systemcore::concurrency
+} // namespace systemcore::concurrency::containers

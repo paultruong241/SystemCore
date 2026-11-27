@@ -5,6 +5,7 @@ add_executable(system_core_tests
     concurrency/bounded_queue_test.cpp
     concurrency/circular_buffer_test.cpp
     concurrency/queue_test.cpp
+    concurrency/stack_test.cpp
     logging/console_sink_test.cpp
     logging/file_sink_test.cpp
     logging/formatter_test.cpp
